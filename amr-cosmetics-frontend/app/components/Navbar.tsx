@@ -2,12 +2,40 @@
 
 import Link from "next/link";
 import { useCart } from "../context/CartContext";
+import { useAuth } from "../context/AuthContext";
+
+type CartItemLike = { quantity?: number };
+
+type CartContextLike = {
+  totalItems?: number;
+  cartItems?: CartItemLike[];
+  items?: CartItemLike[];
+};
+
+function getTotalItems(cart: CartContextLike): number {
+  if (typeof cart.totalItems === "number") return cart.totalItems;
+
+  const list = Array.isArray(cart.cartItems)
+    ? cart.cartItems
+    : Array.isArray(cart.items)
+    ? cart.items
+    : [];
+
+  return list.reduce((sum, it) => sum + (it.quantity ?? 1), 0);
+}
 
 export default function Navbar() {
-  const { totalItems } = useCart();
+  const cart = useCart() as unknown as CartContextLike;
+  const { user, isLoggedIn, logout } = useAuth();
+
+  const totalItems = getTotalItems(cart);
 
   return (
-    <nav className="flex items-center justify-between px-6 py-4 bg-black text-white">
+    // ✅ This prevents hydration warnings when auth changes after client loads
+    <nav
+      className="flex items-center justify-between px-6 py-4 bg-black text-white border-b border-zinc-900"
+      suppressHydrationWarning
+    >
       <Link href="/" className="text-2xl font-bold text-pink-500">
         Amr Cosmetics
       </Link>
@@ -37,11 +65,43 @@ export default function Navbar() {
           )}
         </li>
 
-        <li>
-          <Link className="hover:text-pink-400" href="/login">
-            Login
-          </Link>
-        </li>
+        {/* Auth links */}
+        {!isLoggedIn ? (
+          <>
+            <li>
+              <Link className="hover:text-pink-400" href="/login">
+                Login
+              </Link>
+            </li>
+            <li>
+              <Link className="hover:text-pink-400" href="/register">
+                Register
+              </Link>
+            </li>
+          </>
+        ) : (
+          <>
+            <li>
+              <Link className="hover:text-pink-400" href="/account">
+                Account
+              </Link>
+            </li>
+
+            {user?.role === "ADMIN" && (
+              <li>
+                <Link className="hover:text-pink-400" href="/admin">
+                  Admin
+                </Link>
+              </li>
+            )}
+
+            <li>
+              <button className="hover:text-pink-400" onClick={logout} type="button">
+                Logout
+              </button>
+            </li>
+          </>
+        )}
       </ul>
     </nav>
   );
