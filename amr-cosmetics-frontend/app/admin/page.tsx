@@ -9,7 +9,6 @@ export default function AdminPage() {
   const router = useRouter();
   const { user, isLoggedIn } = useAuth();
 
-  // ✅ Only ADMIN can access
   useEffect(() => {
     if (!isLoggedIn) router.push("/login");
     else if (user?.role !== "ADMIN") router.push("/account");
@@ -17,8 +16,8 @@ export default function AdminPage() {
 
   if (!isLoggedIn || user?.role !== "ADMIN") {
     return (
-      <div className="w-full bg-black">
-        <div className="max-w-5xl mx-auto px-6 py-12 text-white">
+      <div className="w-full">
+        <div className="max-w-6xl mx-auto px-6 py-12 text-white">
           <p className="text-gray-300">Checking access…</p>
         </div>
       </div>
@@ -26,7 +25,8 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="w-full bg-black">
+    <div className="w-full">
+      {/* ✅ Center container */}
       <div className="max-w-6xl mx-auto px-6 py-12 text-white">
         {/* Header */}
         <div className="flex items-start md:items-center justify-between flex-col md:flex-row gap-4">
@@ -55,7 +55,7 @@ export default function AdminPage() {
           </div>
         </div>
 
-        {/* Stats (demo) */}
+        {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-8">
           <div className="bg-zinc-900 border border-zinc-800 rounded p-5">
             <p className="text-gray-400 text-sm">Total Products</p>
@@ -71,7 +71,7 @@ export default function AdminPage() {
           </div>
         </div>
 
-        {/* Admin Navigation */}
+        {/* Actions */}
         <h2 className="text-xl font-semibold mt-10 mb-4">Quick Actions</h2>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -80,9 +80,7 @@ export default function AdminPage() {
             className="bg-zinc-900 border border-zinc-800 rounded p-6 hover:bg-zinc-800 transition"
           >
             <h3 className="text-xl font-bold">Manage Products</h3>
-            <p className="text-gray-300 text-sm mt-2">
-              Add / Edit / Remove products
-            </p>
+            <p className="text-gray-300 text-sm mt-2">Add / Edit / Remove products</p>
             <p className="text-pink-400 text-sm mt-4">Open →</p>
           </Link>
 
@@ -91,9 +89,7 @@ export default function AdminPage() {
             className="bg-zinc-900 border border-zinc-800 rounded p-6 hover:bg-zinc-800 transition"
           >
             <h3 className="text-xl font-bold">Orders</h3>
-            <p className="text-gray-300 text-sm mt-2">
-              View customer orders & status
-            </p>
+            <p className="text-gray-300 text-sm mt-2">View customer orders & status</p>
             <p className="text-pink-400 text-sm mt-4">Open →</p>
           </Link>
 
@@ -102,17 +98,13 @@ export default function AdminPage() {
             className="bg-zinc-900 border border-zinc-800 rounded p-6 hover:bg-zinc-800 transition"
           >
             <h3 className="text-xl font-bold">Coupons</h3>
-            <p className="text-gray-300 text-sm mt-2">
-              Manage discount coupons
-            </p>
+            <p className="text-gray-300 text-sm mt-2">Manage discount coupons</p>
             <p className="text-pink-400 text-sm mt-4">Open →</p>
           </Link>
         </div>
 
         <div className="mt-10 bg-zinc-900 border border-zinc-800 rounded p-5">
-          <p className="text-gray-300">
-            Next we will build these pages:
-          </p>
+          <p className="text-gray-300">Next we will build these pages:</p>
           <ul className="list-disc pl-6 mt-2 text-gray-400">
             <li>/admin/products</li>
             <li>/admin/orders</li>
