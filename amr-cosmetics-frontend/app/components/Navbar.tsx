@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useCart } from "../context/CartContext";
-import { useAuth } from "../context/AuthContext";
+import { useCart } from "@/app/context/CartContext";
+import { useAuth } from "@/app/context/AuthContext";
 
 type CartItemLike = { quantity?: number };
 
@@ -31,11 +31,7 @@ export default function Navbar() {
   const totalItems = getTotalItems(cart);
 
   return (
-    // ✅ This prevents hydration warnings when auth changes after client loads
-    <nav
-      className="flex items-center justify-between px-6 py-4 bg-black text-white border-b border-zinc-900"
-      suppressHydrationWarning
-    >
+    <nav className="flex items-center justify-between px-6 py-4 bg-black text-white border-b border-zinc-900">
       <Link href="/" className="text-2xl font-bold text-pink-500">
         Amr Cosmetics
       </Link>
@@ -65,7 +61,7 @@ export default function Navbar() {
           )}
         </li>
 
-        {/* Auth links */}
+        {/* Auth */}
         {!isLoggedIn ? (
           <>
             <li>
@@ -96,7 +92,11 @@ export default function Navbar() {
             )}
 
             <li>
-              <button className="hover:text-pink-400" onClick={logout} type="button">
+              <button
+                className="hover:text-pink-400"
+                onClick={logout}
+                type="button"
+              >
                 Logout
               </button>
             </li>

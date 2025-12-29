@@ -6,10 +6,10 @@ export type Coupon = {
   id: string;
   title: string;
   code: string;
-  discount: number; // percentage (ex: 10)
-  expiresAt: number; // timestamp
+  discount: number; // % or fixed
+  expiresAt: number;
   used: boolean;
-  createdAt?: number; // for sorting / display
+  createdAt?: number;
 };
 
 type CouponContextValue = {
@@ -35,10 +35,8 @@ function safeReadCoupons(): Coupon[] {
 }
 
 export function CouponProvider({ children }: { children: React.ReactNode }) {
-  // ✅ read localStorage without useEffect (fix lint error)
   const [coupons, setCoupons] = useState<Coupon[]>(() => safeReadCoupons());
 
-  // ✅ persist
   useEffect(() => {
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(coupons));
@@ -48,9 +46,11 @@ export function CouponProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo<CouponContextValue>(
     () => ({
       coupons,
-      addCoupon: (coupon) => setCoupons([coupon]),
+      addCoupon: (coupon) => setCoupons([coupon]), // ✅ latest only
       markUsed: (id) =>
-        setCoupons((prev) => prev.map((c) => (c.id === id ? { ...c, used: true } : c))),
+        setCoupons((prev) =>
+          prev.map((c) => (c.id === id ? { ...c, used: true } : c))
+        ),
       clearCoupons: () => setCoupons([]),
     }),
     [coupons]
