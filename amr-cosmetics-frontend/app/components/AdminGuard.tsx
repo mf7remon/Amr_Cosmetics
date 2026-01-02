@@ -10,30 +10,21 @@ type Props = {
 
 export default function AdminGuard({ children }: Props) {
   const router = useRouter();
-
-  // flexible auth shape
-  const auth = useAuth() as unknown as {
-    user?: { role?: string } | null;
-    isLoggedIn?: boolean;
-  };
-
-  const role = auth?.user?.role;
-  const isLoggedIn = auth?.isLoggedIn ?? Boolean(auth?.user);
+  const { user, isLoggedIn } = useAuth();
 
   useEffect(() => {
-    // only runs on client
     if (!isLoggedIn) {
       router.replace("/login");
       return;
     }
-    if (role !== "ADMIN") {
+
+    if (user?.role !== "ADMIN") {
       router.replace("/");
       return;
     }
-  }, [isLoggedIn, role, router]);
+  }, [isLoggedIn, user?.role, router]);
 
-  // Block UI until authorized (prevents flashing)
-  if (!isLoggedIn || role !== "ADMIN") return null;
+  if (!isLoggedIn || user?.role !== "ADMIN") return null;
 
   return <>{children}</>;
 }

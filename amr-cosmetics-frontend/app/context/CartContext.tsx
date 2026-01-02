@@ -1,6 +1,8 @@
 "use client";
 
-import React, { createContext, useContext, useMemo, useState } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { useAuth } from "@/app/context/AuthContext";
+import { getAdminCouponByCode, type AdminCoupon } from "@/app/lib/couponsStore";
 
 export type CartItem = {
   id: string;
@@ -9,10 +11,9 @@ export type CartItem = {
   qty: number;
 };
 
-type Coupon = {
-  code: string;
-  type: "PERCENT";
-  value: number; // e.g. 10 means 10%
+type CartStorageShape = {
+  items: CartItem[];
+  appliedCouponCode: string | null;
 };
 
 type CartContextValue = {
@@ -25,7 +26,7 @@ type CartContextValue = {
   totalItems: number;
   subtotal: number;
 
-  appliedCoupon: Coupon | null;
+  appliedCoupon: AdminCoupon | null;
   discountAmount: number;
   total: number;
 
@@ -35,19 +36,54 @@ type CartContextValue = {
 
 const CartContext = createContext<CartContextValue | null>(null);
 
-/**
- * Demo coupon list (later: from Spin or backend)
- */
-const COUPONS: Coupon[] = [
-  { code: "AMR5", type: "PERCENT", value: 5 },
-  { code: "AMR10", type: "PERCENT", value: 10 },
-  { code: "GLOW15", type: "PERCENT", value: 15 },
-  { code: "BEAUTY20", type: "PERCENT", value: 20 },
-];
+function getCartKey(email?: string | null) {
+  const safe = (email ?? "").trim().toLowerCase();
+  return safe ? `amr_cart_${safe}` : "amr_cart_guest";
+}
+
+function safeReadCart(key: string): CartStorageShape {
+  if (typeof window === "undefined") return { items: [], appliedCouponCode: null };
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return { items: [], appliedCouponCode: null };
+    const parsed = JSON.parse(raw) as CartStorageShape;
+    return {
+      items: Array.isArray(parsed?.items) ? parsed.items : [],
+      appliedCouponCode: typeof parsed?.appliedCouponCode === "string" ? parsed.appliedCouponCode : null,
+    };
+  } catch {
+    return { items: [], appliedCouponCode: null };
+  }
+}
+
+function safeWriteCart(key: string, value: CartStorageShape) {
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  } catch {}
+}
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
+
+  const email = user?.email ?? null;
+  const cartKey = useMemo(() => getCartKey(email), [email]);
+
   const [items, setItems] = useState<CartItem[]>([]);
-  const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
+  const [appliedCouponCode, setAppliedCouponCode] = useState<string | null>(null);
+
+  const loadedRef = useRef(false);
+
+  useEffect(() => {
+    const stored = safeReadCart(cartKey);
+    setItems(stored.items);
+    setAppliedCouponCode(stored.appliedCouponCode);
+    loadedRef.current = true;
+  }, [cartKey]);
+
+  useEffect(() => {
+    if (!loadedRef.current) return;
+    safeWriteCart(cartKey, { items, appliedCouponCode });
+  }, [cartKey, items, appliedCouponCode]);
 
   const addItem: CartContextValue["addItem"] = (item) => {
     setItems((prev) => {
@@ -74,33 +110,51 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const clearCart = () => {
     setItems([]);
-    setAppliedCoupon(null);
+    setAppliedCouponCode(null);
   };
 
   const totalItems = useMemo(() => items.reduce((sum, p) => sum + p.qty, 0), [items]);
   const subtotal = useMemo(() => items.reduce((sum, p) => sum + p.price * p.qty, 0), [items]);
+
+  const appliedCoupon = useMemo(() => {
+    if (!appliedCouponCode) return null;
+    const found = getAdminCouponByCode(appliedCouponCode);
+    if (!found) return null;
+    if (!found.active) return null;
+    if (found.expiresAt && found.expiresAt < Date.now()) return null;
+    return found;
+  }, [appliedCouponCode]);
+
+  const discountAmount = useMemo(() => {
+    if (!appliedCoupon) return 0;
+    if (subtotal <= 0) return 0;
+
+    if (appliedCoupon.type === "PERCENT") {
+      const discount = Math.round((subtotal * appliedCoupon.value) / 100);
+      return Math.max(0, discount);
+    }
+
+    const fixed = Math.round(appliedCoupon.value);
+    return Math.max(0, Math.min(subtotal, fixed));
+  }, [appliedCoupon, subtotal]);
+
+  const total = useMemo(() => Math.max(0, subtotal - discountAmount), [subtotal, discountAmount]);
 
   const applyCoupon: CartContextValue["applyCoupon"] = (code) => {
     const clean = code.trim().toUpperCase();
     if (!clean) return { ok: false, message: "Please enter a coupon code." };
     if (subtotal <= 0) return { ok: false, message: "Cart is empty." };
 
-    const found = COUPONS.find((c) => c.code === clean);
+    const found = getAdminCouponByCode(clean);
     if (!found) return { ok: false, message: "Invalid coupon code." };
+    if (!found.active) return { ok: false, message: "This coupon is not active." };
+    if (found.expiresAt && found.expiresAt < Date.now()) return { ok: false, message: "This coupon is expired." };
 
-    setAppliedCoupon(found);
-    return { ok: true, message: `Coupon applied: ${found.code} (${found.value}%)` };
+    setAppliedCouponCode(found.code);
+    return { ok: true, message: `Coupon applied: ${found.code}` };
   };
 
-  const removeCoupon = () => setAppliedCoupon(null);
-
-  const discountAmount = useMemo(() => {
-    if (!appliedCoupon) return 0;
-    const discount = Math.round((subtotal * appliedCoupon.value) / 100);
-    return Math.max(0, discount);
-  }, [appliedCoupon, subtotal]);
-
-  const total = useMemo(() => Math.max(0, subtotal - discountAmount), [subtotal, discountAmount]);
+  const removeCoupon = () => setAppliedCouponCode(null);
 
   const value: CartContextValue = {
     items,

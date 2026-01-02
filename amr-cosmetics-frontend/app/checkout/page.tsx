@@ -3,8 +3,12 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useCart } from "../context/CartContext";
+import { useAuth } from "../context/AuthContext";
+import { safeReadOrders, safeWriteOrders, type Order } from "@/app/lib/ordersStore";
 
 export default function CheckoutPage() {
+  const { user } = useAuth();
+
   const {
     items,
     subtotal,
@@ -43,9 +47,26 @@ export default function CheckoutPage() {
       return;
     }
 
-    // For now (frontend demo):
-    // Later: create order in backend, then redirect to SSLCommerz payment session
-    alert("Order placed (demo). Next step: SSLCommerz payment integration.");
+    const newOrder: Order = {
+      id: crypto.randomUUID(),
+      userEmail: user?.email ?? null,
+      customerName: name.trim(),
+      phone: phone.trim(),
+      address: address.trim(),
+      city: city.trim(),
+      items: items.map((x) => ({ id: x.id, name: x.name, price: x.price, qty: x.qty })),
+      subtotal,
+      discount: discountAmount,
+      shipping: shippingFee,
+      total: grandTotal,
+      status: "PENDING",
+      createdAt: Date.now(),
+    };
+
+    const prev = safeReadOrders();
+    safeWriteOrders([newOrder, ...prev]);
+
+    alert("Order placed successfully. Admin can now manage it from Admin Orders.");
     clearCart();
   }
 
@@ -63,9 +84,7 @@ export default function CheckoutPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-            {/* LEFT: Delivery form + Coupon */}
             <div className="lg:col-span-2 space-y-6">
-              {/* Delivery Details */}
               <div className="bg-zinc-900 p-6 rounded">
                 <h2 className="text-xl font-bold mb-4">Delivery Details</h2>
 
@@ -115,7 +134,6 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
-              {/* Coupon Section */}
               <div className="bg-zinc-900 p-6 rounded">
                 <h2 className="text-xl font-bold mb-3">Coupon</h2>
 
@@ -123,7 +141,9 @@ export default function CheckoutPage() {
                   <div className="flex items-center justify-between bg-zinc-800 p-4 rounded">
                     <div>
                       <p className="font-semibold text-pink-400">{appliedCoupon.code}</p>
-                      <p className="text-sm text-gray-300">Discount: {appliedCoupon.value}%</p>
+                      <p className="text-sm text-gray-300">
+                        Discount: {appliedCoupon.type === "PERCENT" ? `${appliedCoupon.value}%` : `৳ ${appliedCoupon.value}`}
+                      </p>
                     </div>
                     <button
                       onClick={() => {
@@ -154,11 +174,10 @@ export default function CheckoutPage() {
                 {couponMsg && <p className="mt-3 text-sm text-gray-300">{couponMsg}</p>}
 
                 <p className="mt-3 text-xs text-gray-400">
-                  Demo coupons: AMR5, AMR10, GLOW15, BEAUTY20
+                  Coupons are validated from Admin active coupons.
                 </p>
               </div>
 
-              {/* Items preview */}
               <div className="bg-zinc-900 p-6 rounded">
                 <h2 className="text-xl font-bold mb-4">Items</h2>
                 <div className="space-y-3">
@@ -178,7 +197,6 @@ export default function CheckoutPage() {
               </div>
             </div>
 
-            {/* RIGHT: Summary */}
             <div className="bg-zinc-900 p-6 rounded lg:sticky lg:top-6">
               <h2 className="text-xl font-bold mb-4">Order Summary</h2>
 
@@ -208,11 +226,11 @@ export default function CheckoutPage() {
                 onClick={handlePlaceOrder}
                 className="mt-5 w-full bg-pink-500 hover:bg-pink-600 py-3 rounded"
               >
-                Place Order (Demo)
+                Place Order
               </button>
 
               <p className="mt-3 text-xs text-gray-400">
-                Next step: backend order + SSLCommerz real payment.
+                After placing order, Admin can mark status like Delivered.
               </p>
             </div>
           </div>

@@ -1,104 +1,258 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import ProductCard from "@/app/components/ProductCard";
-import { Product, safeReadProducts } from "@/app/lib/productsStore";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Product, safeReadProducts, safeWriteProducts, slugify } from "@/app/lib/productsStore";
 
-export default function ProductsPage() {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [query, setQuery] = useState<string>("");
-  const [activeCat, setActiveCat] = useState<string>("All");
+type FormState = {
+  title: string;
+  price: string;
+  imageUrl: string;
+  description: string;
+  category: string;
+};
+
+const emptyForm: FormState = {
+  title: "",
+  price: "",
+  imageUrl: "",
+  description: "",
+  category: "",
+};
+
+export default function AdminProductsPage() {
+  const [items, setItems] = useState<Product[]>([]);
+  const [form, setForm] = useState<FormState>(emptyForm);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [status, setStatus] = useState<string>("");
+
+  const loadedRef = useRef(false);
 
   useEffect(() => {
-    setProducts(safeReadProducts());
+    const stored = safeReadProducts();
+    setItems(stored);
+    loadedRef.current = true;
   }, []);
 
-  const categories = useMemo(() => {
-    const set = new Set<string>();
-    for (const p of products) {
-      if (p.category?.trim()) set.add(p.category.trim());
+  const sorted = useMemo(() => {
+    return [...items].sort((a, b) => b.createdAt - a.createdAt);
+  }, [items]);
+
+  const resetForm = () => {
+    setForm(emptyForm);
+    setEditingId(null);
+  };
+
+  const persist = (next: Product[]) => {
+    setItems(next);
+    if (loadedRef.current) safeWriteProducts(next);
+  };
+
+  const submit = () => {
+    setStatus("");
+
+    const title = form.title.trim();
+    const priceNum = Number(form.price);
+    const category = form.category.trim();
+
+    if (!title) {
+      setStatus("Title required");
+      return;
     }
-    return ["All", ...Array.from(set).sort()];
-  }, [products]);
+    if (!Number.isFinite(priceNum) || priceNum <= 0) {
+      setStatus("Valid price required");
+      return;
+    }
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const slug = slugify(title);
 
-    return products
-      .filter((p) => (activeCat === "All" ? true : (p.category ?? "") === activeCat))
-      .filter((p) => {
-        if (!q) return true;
-        const hay = `${p.title} ${p.description ?? ""} ${p.category ?? ""}`.toLowerCase();
-        return hay.includes(q);
-      })
-      .sort((a, b) => b.createdAt - a.createdAt);
-  }, [products, query, activeCat]);
+    if (!editingId) {
+      const newItem: Product = {
+        id: typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
+        title,
+        slug,
+        price: priceNum,
+        imageUrl: form.imageUrl.trim() || undefined,
+        description: form.description.trim() || undefined,
+        category: category || undefined,
+        createdAt: Date.now(),
+      };
+
+      persist([newItem, ...items]);
+      resetForm();
+      setStatus("✅ Product added");
+      return;
+    }
+
+    const updated = items.map((p) =>
+      p.id === editingId
+        ? {
+            ...p,
+            title,
+            slug,
+            price: priceNum,
+            imageUrl: form.imageUrl.trim() || undefined,
+            description: form.description.trim() || undefined,
+            category: category || undefined,
+          }
+        : p
+    );
+
+    persist(updated);
+    resetForm();
+    setStatus("✅ Product updated");
+  };
+
+  const onEdit = (p: Product) => {
+    setEditingId(p.id);
+    setForm({
+      title: p.title,
+      price: String(p.price),
+      imageUrl: p.imageUrl ?? "",
+      description: p.description ?? "",
+      category: p.category ?? "",
+    });
+    setStatus("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const onDelete = (id: string) => {
+    const updated = items.filter((p) => p.id !== id);
+    persist(updated);
+    setStatus("✅ Product deleted");
+  };
+
+  const clearAll = () => {
+    persist([]);
+    resetForm();
+    setStatus("✅ Cleared all products");
+  };
 
   return (
-    <div className="max-w-7xl mx-auto px-6 py-10">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <div className="max-w-6xl mx-auto px-6 py-10">
+      <div className="flex items-start justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-pink-500">Our Products</h1>
-          <p className="text-gray-400 mt-1">Find your perfect match</p>
+          <h1 className="text-3xl font-bold text-pink-500">Admin • Products</h1>
+          <p className="text-gray-400 mt-1">Demo CRUD (localStorage). Later we connect backend + DB.</p>
+          {status ? <p className="text-sm mt-2 text-pink-400">{status}</p> : null}
         </div>
 
-        <div className="flex gap-3">
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search products..."
-            className="w-full sm:w-[320px] px-4 py-2 rounded bg-zinc-900 border border-zinc-800 text-white outline-none focus:border-pink-500"
-          />
-          <button
-            type="button"
-            onClick={() => setProducts(safeReadProducts())}
-            className="border border-zinc-700 px-4 py-2 rounded hover:border-pink-500"
-          >
-            Refresh
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={clearAll}
+          className="border border-zinc-700 px-4 py-2 rounded hover:border-pink-500"
+        >
+          Clear All
+        </button>
       </div>
 
-      <div className="mt-8 grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-6">
-        {/* LEFT SIDEBAR (Categories) */}
-        <aside className="border border-zinc-800 bg-zinc-900 rounded-xl p-5 h-fit">
-          <h2 className="text-lg font-semibold text-white mb-4">Categories</h2>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="border border-zinc-800 bg-zinc-900 rounded p-6">
+          <h2 className="text-xl font-semibold mb-4">{editingId ? "Edit Product" : "Add New Product"}</h2>
 
-          <div className="flex flex-wrap lg:flex-col gap-2">
-            {categories.map((c) => (
+          <label className="block text-sm text-gray-300 mb-1">Title</label>
+          <input
+            className="w-full mb-4 px-3 py-2 rounded bg-zinc-800 text-white outline-none"
+            value={form.title}
+            onChange={(e) => setForm((s) => ({ ...s, title: e.target.value }))}
+          />
+
+          <label className="block text-sm text-gray-300 mb-1">Category</label>
+          <input
+            className="w-full mb-4 px-3 py-2 rounded bg-zinc-800 text-white outline-none"
+            value={form.category}
+            onChange={(e) => setForm((s) => ({ ...s, category: e.target.value }))}
+            placeholder="Beauty care, Jewellery, Gift..."
+          />
+
+          <label className="block text-sm text-gray-300 mb-1">Price (৳)</label>
+          <input
+            className="w-full mb-4 px-3 py-2 rounded bg-zinc-800 text-white outline-none"
+            value={form.price}
+            onChange={(e) => setForm((s) => ({ ...s, price: e.target.value }))}
+            inputMode="numeric"
+          />
+
+          <label className="block text-sm text-gray-300 mb-1">Image URL (optional)</label>
+          <input
+            className="w-full mb-4 px-3 py-2 rounded bg-zinc-800 text-white outline-none"
+            value={form.imageUrl}
+            onChange={(e) => setForm((s) => ({ ...s, imageUrl: e.target.value }))}
+          />
+
+          <label className="block text-sm text-gray-300 mb-1">Description (optional)</label>
+          <textarea
+            className="w-full mb-6 px-3 py-2 rounded bg-zinc-800 text-white outline-none min-h-[120px]"
+            value={form.description}
+            onChange={(e) => setForm((s) => ({ ...s, description: e.target.value }))}
+          />
+
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={submit}
+              className="bg-pink-600 px-6 py-2 rounded text-white hover:opacity-90"
+            >
+              {editingId ? "Save" : "Add"}
+            </button>
+
+            {editingId ? (
               <button
-                key={c}
                 type="button"
-                onClick={() => setActiveCat(c)}
-                className={
-                  c === activeCat
-                    ? "text-left px-3 py-2 rounded bg-pink-600 text-white"
-                    : "text-left px-3 py-2 rounded bg-zinc-950 border border-zinc-800 text-gray-200 hover:border-pink-500"
-                }
+                onClick={resetForm}
+                className="border border-zinc-700 px-6 py-2 rounded hover:border-pink-500"
               >
-                {c}
+                Cancel
               </button>
-            ))}
+            ) : null}
           </div>
-        </aside>
 
-        {/* PRODUCT GRID */}
-        <section>
-          {filtered.length === 0 ? (
-            <div className="border border-zinc-800 bg-zinc-900 rounded p-6 text-gray-300">
-              No products found.
-              <div className="text-gray-400 mt-2">
-                Add products from <span className="text-pink-400">Admin → Products</span> or change filters.
-              </div>
-            </div>
+          <p className="text-xs text-gray-400 mt-4">
+            Slug auto তৈরি হবে title থেকে (e.g. “Matte Lipstick” → matte-lipstick)
+          </p>
+        </div>
+
+        <div className="border border-zinc-800 bg-zinc-900 rounded p-6">
+          <h2 className="text-xl font-semibold mb-4">Products ({sorted.length})</h2>
+
+          {sorted.length === 0 ? (
+            <p className="text-gray-400">No products yet.</p>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
-              {filtered.map((p) => (
-                <ProductCard key={p.id} product={p} />
+            <div className="space-y-4">
+              {sorted.map((p) => (
+                <div key={p.id} className="border border-zinc-800 rounded p-4 bg-zinc-950">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <h3 className="font-semibold text-lg">{p.title}</h3>
+                      <p className="text-sm text-gray-400">Slug: {p.slug}</p>
+                      {p.category ? <p className="text-sm text-gray-400">Category: {p.category}</p> : null}
+                      <p className="text-pink-400 mt-2">৳ {p.price}</p>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => onEdit(p)}
+                        className="border border-zinc-700 px-4 py-2 rounded hover:border-pink-500"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onDelete(p.id)}
+                        className="border border-zinc-700 px-4 py-2 rounded hover:border-pink-500"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+
+                  {p.description ? <p className="text-gray-300 mt-3">{p.description}</p> : null}
+                  {p.imageUrl ? <p className="text-gray-400 mt-3 break-all">Image: {p.imageUrl}</p> : null}
+                </div>
               ))}
             </div>
           )}
-        </section>
+        </div>
       </div>
     </div>
   );

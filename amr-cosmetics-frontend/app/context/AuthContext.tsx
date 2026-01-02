@@ -14,7 +14,11 @@ type AuthContextValue = {
   user: AuthUser | null;
   isLoggedIn: boolean;
   login: (email: string, password: string) => { ok: boolean; message: string };
-  register: (name: string, email: string, password: string) => { ok: boolean; message: string };
+  register: (
+    name: string,
+    email: string,
+    password: string
+  ) => { ok: boolean; message: string };
   logout: () => void;
 };
 
@@ -47,7 +51,6 @@ function saveUserToStorage(u: AuthUser | null) {
  * - Registered USER is stored in localStorage (demo only)
  */
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  // ✅ Load once safely (no useEffect => no lint warning)
   const [user, setUser] = useState<AuthUser | null>(() => {
     if (typeof window === "undefined") return null;
     return loadUserFromStorage();
@@ -61,7 +64,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { ok: false, message: "Please enter email and password." };
     }
 
-    // Admin demo
     if (cleanEmail === "admin@amr.com" && cleanPass === "admin123") {
       const adminUser: AuthUser = { name: "Admin", email: "admin@amr.com", role: "ADMIN" };
       setUser(adminUser);
@@ -69,7 +71,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { ok: true, message: "Logged in as Admin." };
     }
 
-    // USER demo: allow login if saved user email matches
     const stored = typeof window !== "undefined" ? loadUserFromStorage() : null;
     if (stored && stored.role === "USER" && stored.email.toLowerCase() === cleanEmail) {
       setUser(stored);
@@ -110,7 +111,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     saveUserToStorage(null);
   };
 
-  // ✅ useMemo deps warning removed because functions are inside useMemo
   const value = useMemo<AuthContextValue>(() => {
     return {
       user,
@@ -119,7 +119,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       register,
       logout,
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

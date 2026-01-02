@@ -1,12 +1,13 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { useAuth } from "@/app/context/AuthContext";
 
 export type Coupon = {
   id: string;
   title: string;
   code: string;
-  discount: number; // % or fixed
+  discount: number;
   expiresAt: number;
   used: boolean;
   createdAt?: number;
@@ -20,37 +21,55 @@ type CouponContextValue = {
 };
 
 const CouponContext = createContext<CouponContextValue | null>(null);
-const STORAGE_KEY = "amr_coupons";
 
-function safeReadCoupons(): Coupon[] {
+function getUserCouponKey(email?: string | null) {
+  const safe = (email ?? "").trim().toLowerCase();
+  return safe ? `amr_user_coupon_${safe}` : "amr_user_coupon_guest";
+}
+
+function safeReadCoupons(key: string): Coupon[] {
   if (typeof window === "undefined") return [];
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw = window.localStorage.getItem(key);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed) ? (parsed as Coupon[]) : [];
   } catch {
     return [];
   }
 }
 
+function safeWriteCoupons(key: string, coupons: Coupon[]) {
+  try {
+    window.localStorage.setItem(key, JSON.stringify(coupons));
+  } catch {}
+}
+
 export function CouponProvider({ children }: { children: React.ReactNode }) {
-  const [coupons, setCoupons] = useState<Coupon[]>(() => safeReadCoupons());
+  const { user } = useAuth();
+  const email = user?.email ?? null;
+
+  const storageKey = useMemo(() => getUserCouponKey(email), [email]);
+
+  const [coupons, setCoupons] = useState<Coupon[]>([]);
+  const loadedRef = useRef(false);
 
   useEffect(() => {
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(coupons));
-    } catch {}
-  }, [coupons]);
+    const stored = safeReadCoupons(storageKey);
+    setCoupons(Array.isArray(stored) ? stored : []);
+    loadedRef.current = true;
+  }, [storageKey]);
+
+  useEffect(() => {
+    if (!loadedRef.current) return;
+    safeWriteCoupons(storageKey, coupons);
+  }, [storageKey, coupons]);
 
   const value = useMemo<CouponContextValue>(
     () => ({
       coupons,
-      addCoupon: (coupon) => setCoupons([coupon]), // ✅ latest only
-      markUsed: (id) =>
-        setCoupons((prev) =>
-          prev.map((c) => (c.id === id ? { ...c, used: true } : c))
-        ),
+      addCoupon: (coupon) => setCoupons([coupon]), // latest only
+      markUsed: (id) => setCoupons((prev) => prev.map((c) => (c.id === id ? { ...c, used: true } : c))),
       clearCoupons: () => setCoupons([]),
     }),
     [coupons]

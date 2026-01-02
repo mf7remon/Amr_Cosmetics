@@ -1,12 +1,7 @@
 @import "tailwindcss";
 
+/* optional small base reset */
 html,
 body {
   height: 100%;
-}
-
-body {
-  margin: 0;
-  background: #000;
-  color: #fff; /* fallback so screen never looks blank */
 }

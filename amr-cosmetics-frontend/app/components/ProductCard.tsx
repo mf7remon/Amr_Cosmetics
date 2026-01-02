@@ -2,8 +2,11 @@
 
 import Link from "next/link";
 import { Product } from "@/app/lib/productsStore";
+import { useCart } from "@/app/context/CartContext";
 
 export default function ProductCard({ product }: { product: Product }) {
+  const { addItem } = useCart();
+
   return (
     <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden shadow">
       <div className="h-44 bg-zinc-800 flex items-center justify-center">
@@ -21,9 +24,7 @@ export default function ProductCard({ product }: { product: Product }) {
       </div>
 
       <div className="p-5">
-        {product.category ? (
-          <p className="text-xs text-gray-400 mb-1">{product.category}</p>
-        ) : null}
+        {product.category ? <p className="text-xs text-gray-400 mb-1">{product.category}</p> : null}
 
         <h3 className="text-lg font-semibold text-white">{product.title}</h3>
         <p className="text-pink-400 font-bold mt-1">৳ {product.price}</p>
@@ -36,12 +37,13 @@ export default function ProductCard({ product }: { product: Product }) {
             Details
           </Link>
 
-          <Link
-            href={`/product/${product.slug}`}
+          <button
+            type="button"
+            onClick={() => addItem({ id: product.id, name: product.title, price: product.price })}
             className="flex-1 text-center bg-pink-600 text-white py-2 rounded hover:opacity-90"
           >
             Add to Cart
-          </Link>
+          </button>
         </div>
       </div>
     </div>

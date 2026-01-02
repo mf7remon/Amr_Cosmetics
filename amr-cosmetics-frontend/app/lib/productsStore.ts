@@ -26,6 +26,7 @@ export function safeReadProducts(): Product[] {
 export function safeWriteProducts(items: Product[]): void {
   try {
     window.localStorage.setItem(PRODUCTS_KEY, JSON.stringify(items));
+    window.dispatchEvent(new Event("amr-products-updated"));
   } catch {
     // ignore
   }
@@ -38,4 +39,12 @@ export function slugify(input: string): string {
     .replace(/['"]/g, "")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
+}
+
+export function makeUniqueSlug(base: string, existingSlugs: string[]): string {
+  if (!existingSlugs.includes(base)) return base;
+
+  let i = 2;
+  while (existingSlugs.includes(`${base}-${i}`)) i += 1;
+  return `${base}-${i}`;
 }

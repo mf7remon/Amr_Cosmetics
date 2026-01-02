@@ -22,14 +22,18 @@ export default function AdminProductsPage() {
   const [form, setForm] = useState<FormState>(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [status, setStatus] = useState<string>("");
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     setItems(safeReadProducts());
+    setHydrated(true);
   }, []);
 
   useEffect(() => {
+    if (!hydrated) return;
     safeWriteProducts(items);
-  }, [items]);
+    window.dispatchEvent(new Event("amr-products-updated"));
+  }, [items, hydrated]);
 
   const sorted = useMemo(() => {
     return [...items].sort((a, b) => b.createdAt - a.createdAt);
@@ -59,7 +63,10 @@ export default function AdminProductsPage() {
 
     if (!editingId) {
       const newItem: Product = {
-        id: typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
+        id:
+          typeof crypto !== "undefined" && "randomUUID" in crypto
+            ? crypto.randomUUID()
+            : `${Date.now()}-${Math.random()}`,
         title,
         slug,
         price: priceNum,
@@ -135,7 +142,6 @@ export default function AdminProductsPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* FORM */}
         <div className="border border-zinc-800 bg-zinc-900 rounded p-6">
           <h2 className="text-xl font-semibold mb-4">{editingId ? "Edit Product" : "Add New Product"}</h2>
 
@@ -193,7 +199,6 @@ export default function AdminProductsPage() {
           </p>
         </div>
 
-        {/* LIST */}
         <div className="border border-zinc-800 bg-zinc-900 rounded p-6">
           <h2 className="text-xl font-semibold mb-4">Products ({sorted.length})</h2>
 
@@ -229,9 +234,7 @@ export default function AdminProductsPage() {
                   </div>
 
                   {p.description ? <p className="text-gray-300 mt-3">{p.description}</p> : null}
-                  {p.imageUrl ? (
-                    <p className="text-gray-400 mt-3 break-all">Image: {p.imageUrl}</p>
-                  ) : null}
+                  {p.imageUrl ? <p className="text-gray-400 mt-3 break-all">Image: {p.imageUrl}</p> : null}
                 </div>
               ))}
             </div>

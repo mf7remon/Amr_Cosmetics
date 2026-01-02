@@ -14,35 +14,27 @@ export default function CartPage() {
         {items.length === 0 ? (
           <div className="bg-zinc-900 p-6 rounded">
             <p className="text-gray-300">Your cart is empty.</p>
-            <Link
-              href="/products"
-              className="inline-block mt-4 text-pink-400 hover:text-pink-300"
-            >
+            <Link href="/products" className="inline-block mt-4 text-pink-400 hover:text-pink-300">
               Go to Products →
             </Link>
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-            {/* LEFT: Items */}
             <div className="lg:col-span-2 space-y-4">
               {items.map((item) => (
                 <div key={item.id} className="bg-zinc-900 rounded p-4">
-                  {/* Desktop/tablet row */}
                   <div className="hidden sm:grid grid-cols-12 gap-3 items-center">
-                    {/* Image */}
                     <div className="col-span-1">
                       <div className="h-12 w-12 bg-zinc-800 rounded flex items-center justify-center text-gray-400">
                         IMG
                       </div>
                     </div>
 
-                    {/* Name + unit price */}
                     <div className="col-span-5">
                       <p className="font-semibold">{item.name}</p>
                       <p className="text-sm text-gray-400">৳ {item.price}</p>
                     </div>
 
-                    {/* Quantity controls */}
                     <div className="col-span-3">
                       <div className="flex items-center justify-start gap-2">
                         <button
@@ -71,14 +63,10 @@ export default function CartPage() {
                       </div>
                     </div>
 
-                    {/* Line total */}
                     <div className="col-span-2 text-right">
-                      <p className="font-semibold text-pink-400">
-                        ৳ {item.price * item.qty}
-                      </p>
+                      <p className="font-semibold text-pink-400">৳ {item.price * item.qty}</p>
                     </div>
 
-                    {/* Remove */}
                     <div className="col-span-1 text-right">
                       <button
                         className="text-sm text-red-400 hover:text-red-300"
@@ -89,7 +77,6 @@ export default function CartPage() {
                     </div>
                   </div>
 
-                  {/* Mobile stacked layout */}
                   <div className="sm:hidden space-y-3">
                     <div className="flex items-center gap-3">
                       <div className="h-12 w-12 bg-zinc-800 rounded flex items-center justify-center text-gray-400">
@@ -132,23 +119,17 @@ export default function CartPage() {
                         </button>
                       </div>
 
-                      <p className="font-semibold text-pink-400">
-                        ৳ {item.price * item.qty}
-                      </p>
+                      <p className="font-semibold text-pink-400">৳ {item.price * item.qty}</p>
                     </div>
                   </div>
                 </div>
               ))}
 
-              <button
-                className="text-sm text-gray-300 hover:text-white underline"
-                onClick={clearCart}
-              >
+              <button className="text-sm text-gray-300 hover:text-white underline" onClick={clearCart}>
                 Clear cart
               </button>
             </div>
 
-            {/* RIGHT: Summary */}
             <div className="bg-zinc-900 p-6 rounded lg:sticky lg:top-6">
               <h2 className="text-xl font-bold mb-4">Order Summary</h2>
 
@@ -176,10 +157,7 @@ export default function CartPage() {
                 Proceed to Checkout
               </Link>
 
-              <Link
-                href="/products"
-                className="block text-center mt-3 text-pink-400 hover:text-pink-300"
-              >
+              <Link href="/products" className="block text-center mt-3 text-pink-400 hover:text-pink-300">
                 Continue Shopping
               </Link>
             </div>

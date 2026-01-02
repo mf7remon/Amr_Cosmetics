@@ -1,51 +1,46 @@
 "use client";
 
+import { useMemo } from "react";
 import { useCoupons } from "@/app/context/CouponContext";
-
-const SPIN_OPTIONS = [
-  { label: "5% OFF", discount: 5 },
-  { label: "10% OFF", discount: 10 },
-  { label: "15% OFF", discount: 15 },
-  { label: "20% OFF", discount: 20 },
-  { label: "৳100 OFF", discount: 100 },
-  { label: "৳199 OFF", discount: 199 },
-  { label: "Better luck next time", discount: 0 },
-];
+import { safeReadAdminCoupons } from "@/app/lib/couponsStore";
 
 export default function SpinPage() {
   const { addCoupon } = useCoupons();
 
-  const spin = () => {
-    const result = SPIN_OPTIONS[Math.floor(Math.random() * SPIN_OPTIONS.length)];
+  const activeAdminCoupons = useMemo(() => {
+    const all = safeReadAdminCoupons();
+    const now = Date.now();
+    return all.filter((c) => c.active && c.expiresAt > now);
+  }, []);
 
-    if (result.discount === 0) {
-      alert("😅 Better luck next time!");
+  const spin = () => {
+    if (activeAdminCoupons.length === 0) {
+      alert("No active coupons available right now.");
       return;
     }
 
-    const isPercent = result.discount < 100;
-    const code = isPercent
-      ? `AMR${result.discount}`
-      : `AMR${result.discount}`;
+    const win = activeAdminCoupons[Math.floor(Math.random() * activeAdminCoupons.length)];
 
     addCoupon({
       id: crypto.randomUUID(),
-      title: result.label,
-      code,
-      discount: result.discount,
-      expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
+      title: win.title,
+      code: win.code,
+      discount: win.type === "PERCENT" ? win.value : win.value,
+      expiresAt: win.expiresAt,
       used: false,
       createdAt: Date.now(),
     });
 
-    alert(`🎉 You won: ${result.label}`);
+    alert(`You won: ${win.title} (Code: ${win.code})`);
   };
 
   return (
     <div className="max-w-md mx-auto py-20 text-center">
-      <h1 className="text-3xl font-bold text-pink-500 mb-6">
-        Spin & Win 🎡
-      </h1>
+      <h1 className="text-3xl font-bold text-pink-500 mb-6">Spin & Win 🎡</h1>
+
+      <p className="text-gray-300 mb-6">
+        Only admin active coupons can be won.
+      </p>
 
       <button
         type="button"
@@ -54,6 +49,21 @@ export default function SpinPage() {
       >
         Spin Now
       </button>
+
+      <div className="mt-8 text-left border border-zinc-800 bg-zinc-900 rounded p-4">
+        <p className="text-sm text-gray-300 mb-2">Active coupons available:</p>
+        {activeAdminCoupons.length === 0 ? (
+          <p className="text-sm text-gray-400">None</p>
+        ) : (
+          <ul className="text-sm text-gray-200 space-y-1">
+            {activeAdminCoupons.map((c) => (
+              <li key={c.id}>
+                {c.title} <span className="text-gray-400">({c.code})</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }

@@ -48,6 +48,14 @@ export default function AccountPage() {
             View Cart
           </Link>
 
+          <Link href="/account/spin" className="px-4 py-2 rounded bg-zinc-900 hover:bg-zinc-800">
+            Spin to Win
+          </Link>
+
+          <Link href="/account/coupons" className="px-4 py-2 rounded bg-zinc-900 hover:bg-zinc-800">
+            My Coupons
+          </Link>
+
           <button
             className="px-4 py-2 rounded bg-pink-500 hover:bg-pink-600"
             onClick={() => {

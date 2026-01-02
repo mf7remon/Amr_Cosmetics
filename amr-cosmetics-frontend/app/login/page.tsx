@@ -17,8 +17,8 @@ export default function LoginPage() {
     e.preventDefault();
     const res = login(email, password);
     setMsg(res.message);
+
     if (res.ok) {
-      // Admin goes to /admin, user goes to /account
       if (email.trim().toLowerCase() === "admin@amr.com") router.push("/admin");
       else router.push("/account");
     }
@@ -50,14 +50,14 @@ export default function LoginPage() {
             />
           </div>
 
-          <button className="w-full bg-pink-500 hover:bg-pink-600 py-2 rounded">
-            Login
-          </button>
+          <button className="w-full bg-pink-500 hover:bg-pink-600 py-2 rounded">Login</button>
 
           {msg && <p className="text-sm text-gray-300">{msg}</p>}
 
           <div className="text-sm text-gray-400">
-            <p>Demo Admin: <span className="text-gray-200">admin@amr.com / admin123</span></p>
+            <p>
+              Demo Admin: <span className="text-gray-200">admin@amr.com / admin123</span>
+            </p>
           </div>
         </form>
 

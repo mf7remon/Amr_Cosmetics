@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCart } from "@/app/context/CartContext";
 import { useAuth } from "@/app/context/AuthContext";
 
-type CartItemLike = { quantity?: number };
+type CartItemLike = { qty?: number; quantity?: number };
 
 type CartContextLike = {
   totalItems?: number;
@@ -21,7 +21,7 @@ function getTotalItems(cart: CartContextLike): number {
     ? cart.items
     : [];
 
-  return list.reduce((sum, it) => sum + (it.quantity ?? 1), 0);
+  return list.reduce((sum, it) => sum + (it.qty ?? it.quantity ?? 1), 0);
 }
 
 export default function Navbar() {
@@ -61,7 +61,6 @@ export default function Navbar() {
           )}
         </li>
 
-        {/* Auth */}
         {!isLoggedIn ? (
           <>
             <li>
@@ -92,11 +91,7 @@ export default function Navbar() {
             )}
 
             <li>
-              <button
-                className="hover:text-pink-400"
-                onClick={logout}
-                type="button"
-              >
+              <button className="hover:text-pink-400" onClick={logout} type="button">
                 Logout
               </button>
             </li>
