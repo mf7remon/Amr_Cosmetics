@@ -48,6 +48,19 @@ export default function ProductDetailsPage() {
     window.setTimeout(() => setAdded(false), 900);
   };
 
+  // ✅ Buy Now always consistent: add this product then go checkout
+  const onBuyNow = () => {
+    if (!product) return;
+
+    addItem({
+      id: product.id,
+      name: product.title,
+      price: product.price,
+    });
+
+    router.push("/checkout");
+  };
+
   if (!loaded) {
     return (
       <div className="max-w-6xl mx-auto px-6 py-10">
@@ -142,16 +155,17 @@ export default function ProductDetailsPage() {
               {added ? "Added ✅" : "Add to Cart"}
             </button>
 
-            <Link
-              href="/checkout"
+            <button
+              type="button"
+              onClick={onBuyNow}
               className="flex-1 text-center border border-pink-500 text-white py-3 rounded hover:bg-pink-600"
             >
               Buy Now
-            </Link>
+            </button>
           </div>
 
           <p className="text-xs text-gray-500 mt-4">
-            টিপ, আগে cart এ add করো তারপর checkout করো।
+            Buy Now দিলে product auto cart এ add হবে, তারপর checkout এ যাবে।
           </p>
         </div>
       </div>

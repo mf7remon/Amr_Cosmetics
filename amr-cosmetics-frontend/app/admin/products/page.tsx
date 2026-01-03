@@ -8,13 +8,27 @@ type FormState = {
   price: string;
   imageUrl: string;
   description: string;
+  categoryChoice: string; // dropdown value
+  customCategory: string; // if dropdown = "Custom"
 };
+
+const CATEGORY_OPTIONS = [
+  "Clothing",
+  "Bags",
+  "Jewellery",
+  "Beauty care",
+  "Footware",
+  "Gift",
+  "Tech Accessories",
+];
 
 const emptyForm: FormState = {
   title: "",
   price: "",
   imageUrl: "",
   description: "",
+  categoryChoice: "All",
+  customCategory: "",
 };
 
 export default function AdminProductsPage() {
@@ -22,21 +36,42 @@ export default function AdminProductsPage() {
   const [form, setForm] = useState<FormState>(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [status, setStatus] = useState<string>("");
-  const [hydrated, setHydrated] = useState(false);
 
+  // ✅ Load once only
   useEffect(() => {
-    setItems(safeReadProducts());
-    setHydrated(true);
+    const existing = safeReadProducts();
+    setItems(existing);
   }, []);
 
-  useEffect(() => {
-    if (!hydrated) return;
-    safeWriteProducts(items);
-    window.dispatchEvent(new Event("amr-products-updated"));
-  }, [items, hydrated]);
+  // ✅ Single safe updater: updates state and localStorage together (no overwrite bug)
+  const saveAndSet = (updater: (prev: Product[]) => Product[]) => {
+    setItems((prev) => {
+      const next = updater(prev);
+
+      safeWriteProducts(next);
+
+      // same-tab refresh helper
+      try {
+        window.dispatchEvent(new Event("amr-products-updated"));
+      } catch {}
+
+      return next;
+    });
+  };
 
   const sorted = useMemo(() => {
     return [...items].sort((a, b) => b.createdAt - a.createdAt);
+  }, [items]);
+
+  // ✅ Admin dropdown list = default categories + categories already used in products
+  const adminCategoryOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const c of CATEGORY_OPTIONS) set.add(c);
+    for (const p of items) {
+      const cat = (p.category ?? "").trim();
+      if (cat) set.add(cat);
+    }
+    return ["All", ...Array.from(set).sort()];
   }, [items]);
 
   const resetForm = () => {
@@ -54,12 +89,25 @@ export default function AdminProductsPage() {
       setStatus("Title required");
       return;
     }
+
     if (!Number.isFinite(priceNum) || priceNum <= 0) {
       setStatus("Valid price required");
       return;
     }
 
     const slug = slugify(title);
+
+    // ✅ category final
+    let categoryFinal = "";
+    if (form.categoryChoice === "All") {
+      categoryFinal = "";
+    } else if (form.categoryChoice === "Custom") {
+      categoryFinal = form.customCategory.trim();
+    } else {
+      categoryFinal = form.categoryChoice.trim();
+    }
+
+    const categoryValue = categoryFinal ? categoryFinal : undefined;
 
     if (!editingId) {
       const newItem: Product = {
@@ -72,16 +120,17 @@ export default function AdminProductsPage() {
         price: priceNum,
         imageUrl: form.imageUrl.trim() || undefined,
         description: form.description.trim() || undefined,
+        category: categoryValue,
         createdAt: Date.now(),
       };
 
-      setItems((prev) => [newItem, ...prev]);
+      saveAndSet((prev) => [newItem, ...prev]);
       resetForm();
       setStatus("✅ Product added");
       return;
     }
 
-    setItems((prev) =>
+    saveAndSet((prev) =>
       prev.map((p) =>
         p.id === editingId
           ? {
@@ -91,6 +140,7 @@ export default function AdminProductsPage() {
               price: priceNum,
               imageUrl: form.imageUrl.trim() || undefined,
               description: form.description.trim() || undefined,
+              category: categoryValue,
             }
           : p
       )
@@ -102,23 +152,30 @@ export default function AdminProductsPage() {
 
   const onEdit = (p: Product) => {
     setEditingId(p.id);
+
+    const existingCat = (p.category ?? "").trim();
+    const existsInOptions = existingCat && adminCategoryOptions.includes(existingCat);
+
     setForm({
       title: p.title,
       price: String(p.price),
       imageUrl: p.imageUrl ?? "",
       description: p.description ?? "",
+      categoryChoice: existingCat ? (existsInOptions ? existingCat : "Custom") : "All",
+      customCategory: existingCat && !existsInOptions ? existingCat : "",
     });
+
     setStatus("");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const onDelete = (id: string) => {
-    setItems((prev) => prev.filter((p) => p.id !== id));
+    saveAndSet((prev) => prev.filter((p) => p.id !== id));
     setStatus("✅ Product deleted");
   };
 
   const clearAll = () => {
-    setItems([]);
+    saveAndSet(() => []);
     resetForm();
     setStatus("✅ Cleared all products");
   };
@@ -142,6 +199,7 @@ export default function AdminProductsPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* FORM */}
         <div className="border border-zinc-800 bg-zinc-900 rounded p-6">
           <h2 className="text-xl font-semibold mb-4">{editingId ? "Edit Product" : "Add New Product"}</h2>
 
@@ -159,6 +217,41 @@ export default function AdminProductsPage() {
             onChange={(e) => setForm((s) => ({ ...s, price: e.target.value }))}
             inputMode="numeric"
           />
+
+          {/* ✅ CATEGORY */}
+          <label className="block text-sm text-gray-300 mb-1">Category</label>
+          <select
+            className="w-full mb-3 px-3 py-2 rounded bg-zinc-800 text-white outline-none"
+            value={form.categoryChoice}
+            onChange={(e) =>
+              setForm((s) => ({
+                ...s,
+                categoryChoice: e.target.value,
+                customCategory: e.target.value === "Custom" ? s.customCategory : "",
+              }))
+            }
+          >
+            <option value="All">All (default)</option>
+            {adminCategoryOptions
+              .filter((c) => c !== "All")
+              .map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            <option value="Custom">Custom (নিজে লিখবো)</option>
+          </select>
+
+          {form.categoryChoice === "Custom" ? (
+            <input
+              className="w-full mb-4 px-3 py-2 rounded bg-zinc-800 text-white outline-none"
+              placeholder="Type category name..."
+              value={form.customCategory}
+              onChange={(e) => setForm((s) => ({ ...s, customCategory: e.target.value }))}
+            />
+          ) : (
+            <div className="mb-4" />
+          )}
 
           <label className="block text-sm text-gray-300 mb-1">Image URL (optional)</label>
           <input
@@ -199,6 +292,7 @@ export default function AdminProductsPage() {
           </p>
         </div>
 
+        {/* LIST */}
         <div className="border border-zinc-800 bg-zinc-900 rounded p-6">
           <h2 className="text-xl font-semibold mb-4">Products ({sorted.length})</h2>
 
@@ -212,6 +306,13 @@ export default function AdminProductsPage() {
                     <div>
                       <h3 className="font-semibold text-lg">{p.title}</h3>
                       <p className="text-sm text-gray-400">Slug: {p.slug}</p>
+
+                      {p.category ? (
+                        <p className="text-sm text-gray-400 mt-1">Category: {p.category}</p>
+                      ) : (
+                        <p className="text-sm text-gray-500 mt-1">Category: (None)</p>
+                      )}
+
                       <p className="text-pink-400 mt-2">৳ {p.price}</p>
                     </div>
 

@@ -1,8 +1,7 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/app/context/AuthContext";
-import { getAdminCouponByCode, type AdminCoupon } from "@/app/lib/couponsStore";
 
 export type CartItem = {
   id: string;
@@ -11,9 +10,15 @@ export type CartItem = {
   qty: number;
 };
 
-type CartStorageShape = {
+type Coupon = {
+  code: string;
+  type: "PERCENT";
+  value: number; // e.g. 10 means 10%
+};
+
+type StoredCart = {
   items: CartItem[];
-  appliedCouponCode: string | null;
+  appliedCoupon: Coupon | null;
 };
 
 type CartContextValue = {
@@ -26,7 +31,7 @@ type CartContextValue = {
   totalItems: number;
   subtotal: number;
 
-  appliedCoupon: AdminCoupon | null;
+  appliedCoupon: Coupon | null;
   discountAmount: number;
   total: number;
 
@@ -36,54 +41,101 @@ type CartContextValue = {
 
 const CartContext = createContext<CartContextValue | null>(null);
 
-function getCartKey(email?: string | null) {
-  const safe = (email ?? "").trim().toLowerCase();
-  return safe ? `amr_cart_${safe}` : "amr_cart_guest";
+/**
+ * Demo coupon list (later: from Spin or backend)
+ */
+const COUPONS: Coupon[] = [
+  { code: "AMR5", type: "PERCENT", value: 5 },
+  { code: "AMR10", type: "PERCENT", value: 10 },
+  { code: "GLOW15", type: "PERCENT", value: 15 },
+  { code: "BEAUTY20", type: "PERCENT", value: 20 },
+];
+
+const CART_PREFIX = "amr_cart_v1";
+
+function makeCartKey(email?: string | null) {
+  const clean = (email ?? "").trim().toLowerCase();
+  return clean ? `${CART_PREFIX}:${clean}` : `${CART_PREFIX}:guest`;
 }
 
-function safeReadCart(key: string): CartStorageShape {
-  if (typeof window === "undefined") return { items: [], appliedCouponCode: null };
+function safeReadCart(key: string): StoredCart {
+  if (typeof window === "undefined") return { items: [], appliedCoupon: null };
+
   try {
     const raw = window.localStorage.getItem(key);
-    if (!raw) return { items: [], appliedCouponCode: null };
-    const parsed = JSON.parse(raw) as CartStorageShape;
-    return {
-      items: Array.isArray(parsed?.items) ? parsed.items : [],
-      appliedCouponCode: typeof parsed?.appliedCouponCode === "string" ? parsed.appliedCouponCode : null,
-    };
+    if (!raw) return { items: [], appliedCoupon: null };
+
+    const parsed = JSON.parse(raw) as Partial<StoredCart> | null;
+    const items = Array.isArray(parsed?.items) ? (parsed?.items as CartItem[]) : [];
+    const appliedCoupon = parsed?.appliedCoupon ?? null;
+
+    // basic cleanup
+    const cleanItems = items
+      .map((x) => {
+        const id = typeof x?.id === "string" ? x.id : "";
+        const name = typeof x?.name === "string" ? x.name : "";
+        const price = typeof x?.price === "number" ? x.price : Number(x?.price);
+        const qty = typeof x?.qty === "number" ? x.qty : Number(x?.qty);
+
+        if (!id || !name || !Number.isFinite(price) || !Number.isFinite(qty)) return null;
+
+        return {
+          id,
+          name,
+          price,
+          qty: Math.max(1, Math.floor(qty)),
+        } as CartItem;
+      })
+      .filter((v): v is CartItem => v !== null);
+
+    // validate coupon against list
+    let cleanCoupon: Coupon | null = null;
+    if (appliedCoupon && typeof (appliedCoupon as any).code === "string") {
+      const code = String((appliedCoupon as any).code).trim().toUpperCase();
+      const found = COUPONS.find((c) => c.code === code);
+      if (found) cleanCoupon = found;
+    }
+
+    return { items: cleanItems, appliedCoupon: cleanCoupon };
   } catch {
-    return { items: [], appliedCouponCode: null };
+    return { items: [], appliedCoupon: null };
   }
 }
 
-function safeWriteCart(key: string, value: CartStorageShape) {
+function safeWriteCart(key: string, data: StoredCart) {
+  if (typeof window === "undefined") return;
+
   try {
-    window.localStorage.setItem(key, JSON.stringify(value));
-  } catch {}
+    window.localStorage.setItem(key, JSON.stringify(data));
+  } catch {
+    // ignore
+  }
 }
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
 
-  const email = user?.email ?? null;
-  const cartKey = useMemo(() => getCartKey(email), [email]);
+  const storageKey = useMemo(() => makeCartKey(user?.email ?? null), [user?.email]);
 
   const [items, setItems] = useState<CartItem[]>([]);
-  const [appliedCouponCode, setAppliedCouponCode] = useState<string | null>(null);
+  const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
 
-  const loadedRef = useRef(false);
+  // ✅ hydrate on key change (user switch) and block writing until hydrated
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    const stored = safeReadCart(cartKey);
+    setHydrated(false);
+    const stored = safeReadCart(storageKey);
     setItems(stored.items);
-    setAppliedCouponCode(stored.appliedCouponCode);
-    loadedRef.current = true;
-  }, [cartKey]);
+    setAppliedCoupon(stored.appliedCoupon);
+    setHydrated(true);
+  }, [storageKey]);
 
+  // ✅ persist to localStorage (after hydrated only)
   useEffect(() => {
-    if (!loadedRef.current) return;
-    safeWriteCart(cartKey, { items, appliedCouponCode });
-  }, [cartKey, items, appliedCouponCode]);
+    if (!hydrated) return;
+    safeWriteCart(storageKey, { items, appliedCoupon });
+  }, [hydrated, storageKey, items, appliedCoupon]);
 
   const addItem: CartContextValue["addItem"] = (item) => {
     setItems((prev) => {
@@ -103,58 +155,40 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     const safeQty = Number.isFinite(qty) ? qty : 1;
     setItems((prev) =>
       prev
-        .map((p) => (p.id === id ? { ...p, qty: Math.max(1, safeQty) } : p))
+        .map((p) => (p.id === id ? { ...p, qty: Math.max(1, Math.floor(safeQty)) } : p))
         .filter((p) => p.qty > 0)
     );
   };
 
   const clearCart = () => {
     setItems([]);
-    setAppliedCouponCode(null);
+    setAppliedCoupon(null);
   };
 
   const totalItems = useMemo(() => items.reduce((sum, p) => sum + p.qty, 0), [items]);
   const subtotal = useMemo(() => items.reduce((sum, p) => sum + p.price * p.qty, 0), [items]);
-
-  const appliedCoupon = useMemo(() => {
-    if (!appliedCouponCode) return null;
-    const found = getAdminCouponByCode(appliedCouponCode);
-    if (!found) return null;
-    if (!found.active) return null;
-    if (found.expiresAt && found.expiresAt < Date.now()) return null;
-    return found;
-  }, [appliedCouponCode]);
-
-  const discountAmount = useMemo(() => {
-    if (!appliedCoupon) return 0;
-    if (subtotal <= 0) return 0;
-
-    if (appliedCoupon.type === "PERCENT") {
-      const discount = Math.round((subtotal * appliedCoupon.value) / 100);
-      return Math.max(0, discount);
-    }
-
-    const fixed = Math.round(appliedCoupon.value);
-    return Math.max(0, Math.min(subtotal, fixed));
-  }, [appliedCoupon, subtotal]);
-
-  const total = useMemo(() => Math.max(0, subtotal - discountAmount), [subtotal, discountAmount]);
 
   const applyCoupon: CartContextValue["applyCoupon"] = (code) => {
     const clean = code.trim().toUpperCase();
     if (!clean) return { ok: false, message: "Please enter a coupon code." };
     if (subtotal <= 0) return { ok: false, message: "Cart is empty." };
 
-    const found = getAdminCouponByCode(clean);
+    const found = COUPONS.find((c) => c.code === clean);
     if (!found) return { ok: false, message: "Invalid coupon code." };
-    if (!found.active) return { ok: false, message: "This coupon is not active." };
-    if (found.expiresAt && found.expiresAt < Date.now()) return { ok: false, message: "This coupon is expired." };
 
-    setAppliedCouponCode(found.code);
-    return { ok: true, message: `Coupon applied: ${found.code}` };
+    setAppliedCoupon(found);
+    return { ok: true, message: `Coupon applied: ${found.code} (${found.value}%)` };
   };
 
-  const removeCoupon = () => setAppliedCouponCode(null);
+  const removeCoupon = () => setAppliedCoupon(null);
+
+  const discountAmount = useMemo(() => {
+    if (!appliedCoupon) return 0;
+    const discount = Math.round((subtotal * appliedCoupon.value) / 100);
+    return Math.max(0, discount);
+  }, [appliedCoupon, subtotal]);
+
+  const total = useMemo(() => Math.max(0, subtotal - discountAmount), [subtotal, discountAmount]);
 
   const value: CartContextValue = {
     items,
