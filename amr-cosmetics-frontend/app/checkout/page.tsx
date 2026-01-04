@@ -4,11 +4,9 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
-import { safeReadOrders, safeWriteOrders, type Order } from "@/app/lib/ordersStore";
+import { addOrderToStorage, makeOrderId, Order } from "@/app/lib/ordersStore";
 
 export default function CheckoutPage() {
-  const { user } = useAuth();
-
   const {
     items,
     subtotal,
@@ -19,6 +17,8 @@ export default function CheckoutPage() {
     removeCoupon,
     clearCart,
   } = useCart();
+
+  const { user, isLoggedIn } = useAuth();
 
   const [couponInput, setCouponInput] = useState("");
   const [couponMsg, setCouponMsg] = useState<string | null>(null);
@@ -47,26 +47,42 @@ export default function CheckoutPage() {
       return;
     }
 
-    const newOrder: Order = {
-      id: crypto.randomUUID(),
-      userEmail: user?.email ?? null,
+    const email = isLoggedIn && user?.email ? user.email : "guest";
+
+    const order: Order = {
+      id: makeOrderId(),
       customerName: name.trim(),
+      customerEmail: email,
       phone: phone.trim(),
       address: address.trim(),
       city: city.trim(),
-      items: items.map((x) => ({ id: x.id, name: x.name, price: x.price, qty: x.qty })),
+      paymentMethod: "SSLCommerz (Demo)",
+      items: items.map((it) => ({
+        id: it.id,
+        name: it.name,
+        price: it.price,
+        qty: it.qty,
+      })),
       subtotal,
-      discount: discountAmount,
-      shipping: shippingFee,
+      discountAmount,
       total: grandTotal,
+      coupon: appliedCoupon
+        ? {
+            code: appliedCoupon.code,
+            type: appliedCoupon.type,
+            value: appliedCoupon.value,
+          }
+        : null,
       status: "PENDING",
       createdAt: Date.now(),
+      updatedAt: Date.now(),
     };
 
-    const prev = safeReadOrders();
-    safeWriteOrders([newOrder, ...prev]);
+    // ✅ Save order so admin can manage it
+    addOrderToStorage(order);
 
-    alert("Order placed successfully. Admin can now manage it from Admin Orders.");
+    // ✅ Keep your existing behavior (demo alert + clear)
+    alert(`Order placed (demo).\nOrder ID: ${order.id}\nAdmin can update status from Admin → Orders.`);
     clearCart();
   }
 
@@ -84,7 +100,9 @@ export default function CheckoutPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+            {/* LEFT: Delivery form + Coupon */}
             <div className="lg:col-span-2 space-y-6">
+              {/* Delivery Details */}
               <div className="bg-zinc-900 p-6 rounded">
                 <h2 className="text-xl font-bold mb-4">Delivery Details</h2>
 
@@ -132,8 +150,13 @@ export default function CheckoutPage() {
                     </select>
                   </div>
                 </div>
+
+                <p className="text-xs text-gray-400 mt-4">
+                  Note: Order save হবে frontend localStorage এ, payment পরে backend + SSLCommerz এ হবে।
+                </p>
               </div>
 
+              {/* Coupon Section */}
               <div className="bg-zinc-900 p-6 rounded">
                 <h2 className="text-xl font-bold mb-3">Coupon</h2>
 
@@ -141,9 +164,7 @@ export default function CheckoutPage() {
                   <div className="flex items-center justify-between bg-zinc-800 p-4 rounded">
                     <div>
                       <p className="font-semibold text-pink-400">{appliedCoupon.code}</p>
-                      <p className="text-sm text-gray-300">
-                        Discount: {appliedCoupon.type === "PERCENT" ? `${appliedCoupon.value}%` : `৳ ${appliedCoupon.value}`}
-                      </p>
+                      <p className="text-sm text-gray-300">Discount: {appliedCoupon.value}%</p>
                     </div>
                     <button
                       onClick={() => {
@@ -173,11 +194,10 @@ export default function CheckoutPage() {
 
                 {couponMsg && <p className="mt-3 text-sm text-gray-300">{couponMsg}</p>}
 
-                <p className="mt-3 text-xs text-gray-400">
-                  Coupons are validated from Admin active coupons.
-                </p>
+                <p className="mt-3 text-xs text-gray-400">Demo coupons: AMR5, AMR10, GLOW15, BEAUTY20</p>
               </div>
 
+              {/* Items preview */}
               <div className="bg-zinc-900 p-6 rounded">
                 <h2 className="text-xl font-bold mb-4">Items</h2>
                 <div className="space-y-3">
@@ -197,6 +217,7 @@ export default function CheckoutPage() {
               </div>
             </div>
 
+            {/* RIGHT: Summary */}
             <div className="bg-zinc-900 p-6 rounded lg:sticky lg:top-6">
               <h2 className="text-xl font-bold mb-4">Order Summary</h2>
 
@@ -222,16 +243,11 @@ export default function CheckoutPage() {
                 <span className="text-pink-400">৳ {grandTotal}</span>
               </div>
 
-              <button
-                onClick={handlePlaceOrder}
-                className="mt-5 w-full bg-pink-500 hover:bg-pink-600 py-3 rounded"
-              >
-                Place Order
+              <button onClick={handlePlaceOrder} className="mt-5 w-full bg-pink-500 hover:bg-pink-600 py-3 rounded">
+                Place Order (Demo)
               </button>
 
-              <p className="mt-3 text-xs text-gray-400">
-                After placing order, Admin can mark status like Delivered.
-              </p>
+              <p className="mt-3 text-xs text-gray-400">Next step: backend order + SSLCommerz real payment.</p>
             </div>
           </div>
         )}
