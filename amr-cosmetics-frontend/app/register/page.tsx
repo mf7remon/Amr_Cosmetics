@@ -12,6 +12,7 @@ export default function RegisterPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+
   const [msg, setMsg] = useState<string | null>(null);
 
   function handleSubmit(e: React.FormEvent) {
@@ -26,7 +27,7 @@ export default function RegisterPage() {
       <div className="max-w-md mx-auto px-4 py-12 text-white">
         <h1 className="text-3xl font-bold text-pink-500 mb-6">Register</h1>
 
-        <form onSubmit={handleSubmit} className="bg-zinc-900 p-6 rounded space-y-4">
+        <form onSubmit={handleSubmit} className="bg-zinc-900 p-6 rounded space-y-4 border border-zinc-800">
           <div>
             <label className="block text-sm text-gray-300 mb-1">Full Name</label>
             <input

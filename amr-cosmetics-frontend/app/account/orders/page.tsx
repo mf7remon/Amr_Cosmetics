@@ -1,82 +1,128 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useAuth } from "@/app/context/AuthContext";
-import { safeReadUserOrders, Order } from "@/app/lib/ordersStore";
+import * as OrdersStore from "@/app/lib/ordersStore";
 
-function formatDate(ts: number) {
+type AnyOrder = Record<string, any>;
+
+function fallbackReadOrders(key: string): AnyOrder[] {
+  if (typeof window === "undefined") return [];
   try {
-    return new Date(ts).toLocaleString();
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as AnyOrder[]) : [];
   } catch {
-    return "";
+    return [];
   }
 }
 
-function statusBadge(status: Order["status"]) {
-  const base = "inline-block px-3 py-1 rounded text-xs font-semibold border";
-  if (status === "DELIVERED") return `${base} border-green-700 text-green-300 bg-green-950`;
-  if (status === "SHIPPED") return `${base} border-blue-700 text-blue-300 bg-blue-950`;
-  if (status === "PROCESSING") return `${base} border-yellow-700 text-yellow-300 bg-yellow-950`;
-  if (status === "CANCELLED") return `${base} border-red-700 text-red-300 bg-red-950`;
-  return `${base} border-zinc-700 text-gray-200 bg-zinc-950`;
+function getOrdersKey(): string {
+  // ordersStore.ts এ যদি ORDERS_KEY থাকে সেটা নেবে
+  const k = (OrdersStore as any)?.ORDERS_KEY;
+  return typeof k === "string" && k.trim() ? k : "amr_orders";
 }
 
-export default function MyOrdersPage() {
+function safeReadOrders(): AnyOrder[] {
+  // ordersStore.ts এ যদি safeReadOrders থাকে সেটা নেবে, না হলে fallback localStorage read
+  const fn = (OrdersStore as any)?.safeReadOrders;
+  if (typeof fn === "function") {
+    try {
+      const res = fn();
+      return Array.isArray(res) ? res : [];
+    } catch {
+      // ignore
+    }
+  }
+  return fallbackReadOrders(getOrdersKey());
+}
+
+function pickEmail(o: AnyOrder): string {
+  const direct =
+    o?.userEmail ||
+    o?.customerEmail ||
+    o?.email ||
+    o?.user?.email ||
+    o?.customer?.email;
+
+  return typeof direct === "string" ? direct.toLowerCase() : "";
+}
+
+function pickId(o: AnyOrder): string {
+  const id = o?.id || o?.orderId || o?.code;
+  return typeof id === "string" ? id : String(id ?? "");
+}
+
+function pickStatus(o: AnyOrder): string {
+  const s = o?.status || o?.orderStatus;
+  return typeof s === "string" && s.trim() ? s : "Pending";
+}
+
+function pickTotal(o: AnyOrder): number {
+  const t = o?.grandTotal ?? o?.total ?? o?.amount ?? o?.payable ?? 0;
+  const n = typeof t === "number" ? t : Number(t);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function pickCreatedAt(o: AnyOrder): number {
+  const t = o?.createdAt ?? o?.time ?? o?.placedAt ?? 0;
+  const n = typeof t === "number" ? t : Number(t);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function pickItems(o: AnyOrder): AnyOrder[] {
+  const it = o?.items || o?.cartItems || o?.products;
+  return Array.isArray(it) ? it : [];
+}
+
+export default function AccountOrdersPage() {
   const { user, isLoggedIn } = useAuth();
-
-  const email = useMemo(() => {
-    if (!isLoggedIn || !user?.email) return null;
-    return user.email;
-  }, [isLoggedIn, user?.email]);
-
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [q, setQ] = useState("");
-
-  const load = () => {
-    const list = safeReadUserOrders(email);
-    setOrders(list);
-  };
+  const [orders, setOrders] = useState<AnyOrder[]>([]);
+  const [now, setNow] = useState<number>(0);
 
   useEffect(() => {
+    setNow(Date.now());
+
+    const load = () => setOrders(safeReadOrders());
+
     load();
 
-    const onCustom = () => load();
+    const key = getOrdersKey();
     const onStorage = (e: StorageEvent) => {
-      if (!e.key) return;
-      if (e.key.startsWith("amr_orders_v1")) load();
+      if (e.key === key) load();
     };
+    const onCustom = () => load();
 
-    window.addEventListener("amr-orders-updated", onCustom);
     window.addEventListener("storage", onStorage);
+    window.addEventListener("amr-orders-updated", onCustom as any);
 
     return () => {
-      window.removeEventListener("amr-orders-updated", onCustom);
       window.removeEventListener("storage", onStorage);
+      window.removeEventListener("amr-orders-updated", onCustom as any);
     };
-  }, [email]);
+  }, []);
 
-  const filtered = useMemo(() => {
-    const query = q.trim().toLowerCase();
+  const myOrders = useMemo(() => {
+    const me = (user?.email ?? "").toLowerCase();
+    if (!me) return [];
 
-    return [...orders]
-      .filter((o) => {
-        if (!query) return true;
-        const hay = `${o.id} ${o.status} ${o.city} ${o.phone}`.toLowerCase();
-        return hay.includes(query);
-      })
-      .sort((a, b) => b.createdAt - a.createdAt);
-  }, [orders, q]);
+    const list = orders
+      .filter((o) => pickEmail(o) === me)
+      .sort((a, b) => pickCreatedAt(b) - pickCreatedAt(a));
+
+    return list;
+  }, [orders, user?.email]);
 
   if (!isLoggedIn) {
     return (
       <div className="w-full bg-black">
-        <div className="max-w-4xl mx-auto px-6 py-10 text-white">
-          <h1 className="text-3xl font-bold text-pink-500">My Orders</h1>
-          <p className="text-gray-300 mt-2">Orders দেখতে হলে আগে login করতে হবে।</p>
-
+        <div className="max-w-4xl mx-auto px-6 py-12 text-white">
+          <h1 className="text-3xl font-bold text-pink-500 mb-3">My Orders</h1>
+          <p className="text-gray-300">আপনি লগইন করেননি</p>
           <Link href="/login" className="inline-block mt-4 text-pink-400 hover:text-pink-300">
-            Go to Login →
+            Login এ যান →
           </Link>
         </div>
       </div>
@@ -85,117 +131,84 @@ export default function MyOrdersPage() {
 
   return (
     <div className="w-full bg-black">
-      <div className="max-w-6xl mx-auto px-6 py-10 text-white">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-pink-500">My Orders</h1>
-            <p className="text-gray-400 mt-2">
-              এখানে তোমার করা সব order দেখা যাবে এবং admin status update করলে সেটাও এখানে update হয়ে দেখাবে।
-            </p>
-          </div>
-
-          <Link href="/account" className="border border-zinc-700 px-4 py-2 rounded hover:border-pink-500 h-fit">
-            ← Back
+      <div className="max-w-5xl mx-auto px-6 py-10 text-white">
+        <div className="flex items-center justify-between gap-4 mb-6">
+          <h1 className="text-3xl font-bold text-pink-500">My Orders</h1>
+          <Link href="/account" className="text-pink-400 hover:text-pink-300">
+            ← Back to Account
           </Link>
         </div>
 
-        <div className="mt-6 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search by order id or status..."
-            className="w-full sm:w-[360px] px-4 py-2 rounded bg-zinc-900 border border-zinc-800 text-white outline-none focus:border-pink-500"
-          />
+        {myOrders.length === 0 ? (
+          <div className="bg-zinc-900 border border-zinc-800 rounded p-6">
+            <p className="text-gray-300">আপনার কোনো অর্ডার এখনো নেই</p>
+            <Link href="/products" className="inline-block mt-4 text-pink-400 hover:text-pink-300">
+              Products দেখুন →
+            </Link>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {myOrders.map((o) => {
+              const id = pickId(o);
+              const status = pickStatus(o);
+              const total = pickTotal(o);
+              const createdAt = pickCreatedAt(o);
+              const items = pickItems(o);
 
-          <button
-            type="button"
-            onClick={load}
-            className="border border-zinc-700 px-4 py-2 rounded hover:border-pink-500"
-          >
-            Refresh
-          </button>
-        </div>
-
-        <div className="mt-6">
-          {filtered.length === 0 ? (
-            <div className="border border-zinc-800 bg-zinc-900 rounded p-6 text-gray-300">
-              No orders yet.
-              <div className="text-gray-400 mt-2">
-                Order করতে <span className="text-pink-400">Checkout</span> এ গিয়ে Place Order দাও।
-              </div>
-
-              <Link href="/products" className="inline-block mt-4 text-pink-400 hover:text-pink-300">
-                Shop Products →
-              </Link>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {filtered.map((o) => (
-                <div key={o.id} className="border border-zinc-800 bg-zinc-900 rounded p-5">
-                  <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-3">
-                        <p className="font-semibold text-white break-all">{o.id}</p>
-                        <span className={statusBadge(o.status)}>{o.status}</span>
-                      </div>
-
-                      <p className="text-sm text-gray-400 mt-2">
-                        Created: {formatDate(o.createdAt)}
+              return (
+                <div key={id} className="bg-zinc-900 border border-zinc-800 rounded p-5">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div>
+                      <p className="text-sm text-gray-400">Order ID</p>
+                      <p className="font-semibold text-white break-all">{id}</p>
+                      <p className="text-sm text-gray-400 mt-1">
+                        Date:{" "}
+                        {createdAt ? new Date(createdAt).toLocaleString() : now ? new Date(now).toLocaleString() : ""}
                       </p>
-
-                      <div className="mt-4">
-                        <p className="text-sm text-gray-400 mb-2">Items</p>
-                        <div className="space-y-2">
-                          {o.items.map((it) => (
-                            <div key={`${o.id}-${it.id}`} className="flex items-center justify-between text-gray-300">
-                              <span>
-                                {it.name} × {it.qty}
-                              </span>
-                              <span>৳ {it.price * it.qty}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="mt-4 border-t border-zinc-800 pt-4">
-                        <div className="flex justify-between text-gray-300">
-                          <span>Total</span>
-                          <span className="text-pink-400 font-bold">৳ {o.total}</span>
-                        </div>
-
-                        {o.coupon ? (
-                          <p className="text-xs text-gray-400 mt-2">
-                            Coupon: {o.coupon.code} ({o.coupon.value}%)
-                          </p>
-                        ) : (
-                          <p className="text-xs text-gray-500 mt-2">Coupon: None</p>
-                        )}
-                      </div>
                     </div>
 
-                    <div className="w-full lg:w-[260px] border border-zinc-800 bg-zinc-950 rounded p-4">
-                      <p className="text-sm text-gray-400">Delivery</p>
-                      <p className="text-white mt-1">
-                        {o.address}, {o.city}
-                      </p>
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <p className="text-sm text-gray-400">Total</p>
+                        <p className="font-bold text-pink-400">৳ {total}</p>
+                      </div>
 
-                      <p className="text-sm text-gray-400 mt-3">Phone</p>
-                      <p className="text-white mt-1">{o.phone}</p>
-
-                      <p className="text-xs text-gray-500 mt-3">
-                        Updated: {formatDate(o.updatedAt || o.createdAt)}
-                      </p>
+                      <span className="px-3 py-1 rounded-full text-sm border border-zinc-700 bg-zinc-950">
+                        {status}
+                      </span>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
 
-        <p className="text-xs text-gray-600 mt-8">
-          Note: এইটা frontend localStorage demo system, backend হলে real order history থাকবে।
-        </p>
+                  <details className="mt-4">
+                    <summary className="cursor-pointer text-sm text-gray-300 hover:text-white">
+                      Items দেখুন ({items.length})
+                    </summary>
+
+                    <div className="mt-3 space-y-2">
+                      {items.length === 0 ? (
+                        <p className="text-sm text-gray-400">Items data পাওয়া যায়নি</p>
+                      ) : (
+                        items.map((it, idx) => {
+                          const name = it?.name || it?.title || "Item";
+                          const qty = it?.qty ?? it?.quantity ?? 1;
+                          const price = it?.price ?? 0;
+                          return (
+                            <div key={idx} className="flex items-center justify-between text-sm text-gray-300">
+                              <span>
+                                {name} × {qty}
+                              </span>
+                              <span>৳ {Number(price) * Number(qty)}</span>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </details>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

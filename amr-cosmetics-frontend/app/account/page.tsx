@@ -24,10 +24,10 @@ export default function AccountPage() {
 
   return (
     <div className="w-full bg-black">
-      <div className="max-w-3xl mx-auto px-4 py-12 text-white">
+      <div className="max-w-4xl mx-auto px-4 py-12 text-white">
         <h1 className="text-3xl font-bold text-pink-500 mb-6">My Account</h1>
 
-        <div className="bg-zinc-900 p-6 rounded space-y-2">
+        <div className="bg-zinc-900 border border-zinc-800 p-6 rounded space-y-2">
           <p className="text-gray-300">
             Name: <span className="text-white font-semibold">{user?.name}</span>
           </p>
@@ -40,19 +40,23 @@ export default function AccountPage() {
         </div>
 
         <div className="mt-6 flex gap-3 flex-wrap">
-          <Link href="/products" className="px-4 py-2 rounded bg-zinc-900 hover:bg-zinc-800">
+          <Link href="/products" className="px-4 py-2 rounded bg-zinc-900 border border-zinc-800 hover:bg-zinc-800">
             Continue Shopping
           </Link>
 
-          <Link href="/cart" className="px-4 py-2 rounded bg-zinc-900 hover:bg-zinc-800">
+          <Link href="/cart" className="px-4 py-2 rounded bg-zinc-900 border border-zinc-800 hover:bg-zinc-800">
             View Cart
           </Link>
 
-          <Link href="/account/spin" className="px-4 py-2 rounded bg-zinc-900 hover:bg-zinc-800">
+          <Link href="/account/orders" className="px-4 py-2 rounded bg-zinc-900 border border-zinc-800 hover:bg-zinc-800">
+            My Orders
+          </Link>
+
+          <Link href="/account/spin" className="px-4 py-2 rounded bg-zinc-900 border border-zinc-800 hover:bg-zinc-800">
             Spin to Win
           </Link>
 
-          <Link href="/account/coupons" className="px-4 py-2 rounded bg-zinc-900 hover:bg-zinc-800">
+          <Link href="/account/coupons" className="px-4 py-2 rounded bg-zinc-900 border border-zinc-800 hover:bg-zinc-800">
             My Coupons
           </Link>
 
