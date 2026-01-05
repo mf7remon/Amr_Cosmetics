@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useCart } from "@/app/context/CartContext";
 import { useAuth } from "@/app/context/AuthContext";
 
-type CartItemLike = { qty?: number; quantity?: number };
+type CartItemLike = { quantity?: number; qty?: number };
 
 type CartContextLike = {
   totalItems?: number;
@@ -27,13 +28,19 @@ function getTotalItems(cart: CartContextLike): number {
 export default function Navbar() {
   const cart = useCart() as unknown as CartContextLike;
   const { user, isLoggedIn, logout } = useAuth();
-
   const totalItems = getTotalItems(cart);
 
   return (
     <nav className="flex items-center justify-between px-6 py-4 bg-black text-white border-b border-zinc-900">
-      <Link href="/" className="text-2xl font-bold text-pink-500">
-        Amr Cosmetics
+      <Link href="/" className="flex items-center gap-3">
+        <Image
+          src="/logo.png"
+          alt="Amr Cosmetics"
+          width={140}
+          height={56}
+          className="h-10 w-auto object-contain"
+          priority
+        />
       </Link>
 
       <ul className="flex gap-6 items-center">
@@ -46,6 +53,12 @@ export default function Navbar() {
         <li>
           <Link className="hover:text-pink-400" href="/products">
             Products
+          </Link>
+        </li>
+
+        <li>
+          <Link className="hover:text-pink-400" href="/blogs">
+            Blogs
           </Link>
         </li>
 
