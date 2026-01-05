@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { SITE_CONFIG } from "@/app/lib/siteConfig";
 
 function IconMail() {
@@ -68,80 +67,27 @@ function IconInstagram() {
 }
 
 export default function Footer() {
-  const { brand, contact, categories } = SITE_CONFIG;
+  const { brand, contact } = SITE_CONFIG;
 
   return (
     <footer className="border-t border-zinc-900 bg-black text-white">
-      <div className="max-w-7xl mx-auto px-6 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-10">
-          {/* Brand */}
+      <div className="max-w-7xl mx-auto px-6 py-10">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-8">
+          {/* Brand only */}
           <div>
-            <p className="text-xl font-bold text-pink-500">{brand.name}</p>
-            <p className="text-gray-400 mt-2">{brand.tagline}</p>
-            <div className="mt-5 flex gap-3">
-              <Link
-                href="/products"
-                className="inline-flex items-center justify-center px-4 py-2 rounded bg-pink-600 hover:opacity-90"
-              >
-                Shop
-              </Link>
-              <Link
-                href="/account/spin"
-                className="inline-flex items-center justify-center px-4 py-2 rounded bg-zinc-900 border border-zinc-800 hover:border-pink-500"
-              >
-                Spin
-              </Link>
-            </div>
-          </div>
-
-          {/* Quick Links */}
-          <div>
-            <p className="font-semibold text-white">Quick Links</p>
-            <ul className="mt-3 space-y-2 text-gray-400">
-              <li>
-                <Link href="/" className="hover:text-pink-400">
-                  Home
-                </Link>
-              </li>
-              <li>
-                <Link href="/products" className="hover:text-pink-400">
-                  Products
-                </Link>
-              </li>
-              <li>
-                <Link href="/cart" className="hover:text-pink-400">
-                  Cart
-                </Link>
-              </li>
-              <li>
-                <Link href="/account" className="hover:text-pink-400">
-                  Account
-                </Link>
-              </li>
-            </ul>
-          </div>
-
-          {/* Categories */}
-          <div>
-            <p className="font-semibold text-white">Categories</p>
-            <ul className="mt-3 space-y-2 text-gray-400">
-              {categories.map((c) => (
-                <li key={c} className="hover:text-pink-400">
-                  {c}
-                </li>
-              ))}
-            </ul>
+            <p className="text-lg font-bold text-pink-500">{brand.name}</p>
+            <p className="text-sm text-gray-400 mt-1">{brand.tagline}</p>
           </div>
 
           {/* Contact Us (icons only) */}
           <div>
-            <p className="font-semibold text-white">Contact Us</p>
+            <p className="text-sm font-semibold text-white">Contact Us</p>
 
-            <div className="mt-4 flex items-center gap-4">
+            <div className="mt-3 flex items-center gap-3">
               <a
                 href={`mailto:${contact.email}`}
                 aria-label="Email"
-                className="h-11 w-11 rounded-full bg-zinc-900 border border-zinc-800 hover:border-pink-500 flex items-center justify-center text-gray-200 hover:text-white"
+                className="h-10 w-10 rounded-full bg-zinc-900 border border-zinc-800 hover:border-pink-500 flex items-center justify-center text-gray-200 hover:text-white"
               >
                 <IconMail />
               </a>
@@ -149,7 +95,7 @@ export default function Footer() {
               <a
                 href={`tel:${contact.phone}`}
                 aria-label="Phone"
-                className="h-11 w-11 rounded-full bg-zinc-900 border border-zinc-800 hover:border-pink-500 flex items-center justify-center text-gray-200 hover:text-white"
+                className="h-10 w-10 rounded-full bg-zinc-900 border border-zinc-800 hover:border-pink-500 flex items-center justify-center text-gray-200 hover:text-white"
               >
                 <IconPhone />
               </a>
@@ -159,7 +105,7 @@ export default function Footer() {
                 target="_blank"
                 rel="noreferrer"
                 aria-label="Facebook"
-                className="h-11 w-11 rounded-full bg-zinc-900 border border-zinc-800 hover:border-pink-500 flex items-center justify-center text-gray-200 hover:text-white"
+                className="h-10 w-10 rounded-full bg-zinc-900 border border-zinc-800 hover:border-pink-500 flex items-center justify-center text-gray-200 hover:text-white"
               >
                 <IconFacebook />
               </a>
@@ -169,7 +115,7 @@ export default function Footer() {
                 target="_blank"
                 rel="noreferrer"
                 aria-label="Instagram"
-                className="h-11 w-11 rounded-full bg-zinc-900 border border-zinc-800 hover:border-pink-500 flex items-center justify-center text-gray-200 hover:text-white"
+                className="h-10 w-10 rounded-full bg-zinc-900 border border-zinc-800 hover:border-pink-500 flex items-center justify-center text-gray-200 hover:text-white"
               >
                 <IconInstagram />
               </a>
@@ -177,7 +123,7 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="mt-10 pt-6 border-t border-zinc-900 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-gray-500">
+        <div className="mt-8 pt-5 border-t border-zinc-900 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-gray-500">
           <p>© 2025 {brand.name}</p>
           <p>All rights reserved</p>
         </div>
