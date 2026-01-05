@@ -1,82 +1,89 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
+import { useEffect, useMemo, useState } from "react";
 import { useCart } from "@/app/context/CartContext";
+import { Product, safeReadProducts } from "@/app/lib/productsStore";
 
-type Product = {
-  id: string;
-  title: string;
-  slug?: string;
-  price: number;
-  imageUrl?: string;
-  description?: string;
-  category?: string;
-  createdAt?: number;
-};
+const ROTATE_MS = 5000;
 
-const CATEGORIES_FALLBACK = [
-  "All",
-  "Clothing",
-  "Bags",
-  "Jewellery",
-  "Beauty care",
-  "Footware",
-  "Gift",
-  "Tech Accessories",
-];
+function normalize(s: string) {
+  return String(s ?? "").trim().toLowerCase();
+}
 
-function safeJson<T>(raw: string | null, fallback: T): T {
-  try {
-    if (!raw) return fallback;
-    return JSON.parse(raw) as T;
-  } catch {
-    return fallback;
+function buildCategories(products: Product[]) {
+  const set = new Set<string>();
+  for (const p of products) {
+    if (p.category?.trim()) set.add(p.category.trim());
   }
+  const cats = Array.from(set).sort((a, b) => a.localeCompare(b));
+  return ["All", ...cats];
 }
 
-function readProductsFromStorage(): Product[] {
-  if (typeof window === "undefined") return [];
-
-  // try newer key first
-  const v1 = safeJson<Product[]>(localStorage.getItem("amr_products_v1"), []);
-  if (Array.isArray(v1) && v1.length) return v1;
-
-  const old = safeJson<Product[]>(localStorage.getItem("amr_products"), []);
-  if (Array.isArray(old)) return old;
-
-  return [];
+function pickTrending(products: Product[]) {
+  const copy = [...products];
+  copy.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+  return copy;
 }
 
-function readCategoriesFromStorage(): string[] {
-  if (typeof window === "undefined") return CATEGORIES_FALLBACK;
+function ProductCardHome({
+  p,
+  size,
+  onAdd,
+}: {
+  p: Product;
+  size: "sm" | "lg";
+  onAdd: () => void;
+}) {
+  const img = p.imageUrl?.trim() ?? "";
+  const h = size === "lg" ? "h-56" : "h-48";
+  const titleSize = size === "lg" ? "text-base" : "text-sm";
+  const priceSize = size === "lg" ? "text-base" : "text-sm";
 
-  const stored = safeJson<string[]>(localStorage.getItem("amr_categories"), []);
-  const cleaned = Array.isArray(stored)
-    ? stored.map((c) => String(c).trim()).filter(Boolean)
-    : [];
-
-  const finalList = ["All", ...cleaned.filter((x) => x.toLowerCase() !== "all")];
-  return finalList.length ? finalList : CATEGORIES_FALLBACK;
-}
-
-function MenuIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M4 6h16" />
-      <path d="M4 12h16" />
-      <path d="M4 18h16" />
-    </svg>
-  );
-}
+    <div className="bg-zinc-950 border border-zinc-800 rounded-2xl overflow-hidden hover:border-pink-500 transition">
+      <Link href={`/product/${p.slug}`} className="block">
+        <div className={`w-full ${h} bg-zinc-900`}>
+          {img ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={img}
+              alt={p.title}
+              className="h-full w-full object-cover"
+              loading="lazy"
+            />
+          ) : (
+            <div className="h-full w-full flex items-center justify-center text-gray-500 text-sm">
+              No Image
+            </div>
+          )}
+        </div>
+      </Link>
 
-function StarRow() {
-  return (
-    <div className="flex gap-1 text-pink-400 text-sm">
-      {"★★★★★".split("").map((s, i) => (
-        <span key={i}>{s}</span>
-      ))}
+      <div className="p-4">
+        {p.category ? (
+          <p className="text-[11px] text-gray-400 mb-1">{p.category}</p>
+        ) : null}
+
+        <p className={`font-semibold text-white ${titleSize} line-clamp-1`}>
+          {p.title}
+        </p>
+
+        <div className="mt-2 flex items-center justify-between">
+          <div className="flex gap-1 text-pink-400 text-sm">
+            <span>★</span><span>★</span><span>★</span><span>★</span><span>★</span>
+          </div>
+          <p className={`text-pink-400 font-bold ${priceSize}`}>৳ {p.price}</p>
+        </div>
+
+        <button
+          type="button"
+          onClick={onAdd}
+          className="mt-4 w-full py-2 rounded-xl bg-black border border-zinc-800 hover:border-pink-500 text-sm"
+        >
+          Add To Cart
+        </button>
+      </div>
     </div>
   );
 }
@@ -85,286 +92,234 @@ export default function Home() {
   const { addItem } = useCart();
 
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [categories, setCategories] = useState<string[]>(CATEGORIES_FALLBACK);
 
   const [products, setProducts] = useState<Product[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<string>("All");
+  const [activeCat, setActiveCat] = useState<string>("All");
 
   const [trendIndex, setTrendIndex] = useState(0);
 
   useEffect(() => {
-    setCategories(readCategoriesFromStorage());
-    setProducts(readProductsFromStorage());
+    setProducts(safeReadProducts());
+
+    const onFocus = () => setProducts(safeReadProducts());
+    window.addEventListener("focus", onFocus);
+
+    return () => window.removeEventListener("focus", onFocus);
   }, []);
 
-  // Trending list: latest first
-  const trending = useMemo(() => {
-    const list = [...products];
-    list.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
-    return list;
-  }, [products]);
+  const categories = useMemo(() => buildCategories(products), [products]);
 
-  const categoryProducts = useMemo(() => {
-    if (selectedCategory === "All") return [];
-    return products.filter(
-      (p) => (p.category ?? "").toLowerCase() === selectedCategory.toLowerCase()
-    );
-  }, [products, selectedCategory]);
+  const trendingList = useMemo(() => pickTrending(products), [products]);
 
-  // rotate trending every 5 seconds (only when All selected)
+  const filteredProducts = useMemo(() => {
+    if (activeCat === "All") return products;
+    return products.filter((p) => normalize(p.category) === normalize(activeCat));
+  }, [products, activeCat]);
+
   useEffect(() => {
-    if (selectedCategory !== "All") return;
-    if (trending.length <= 1) return;
+    if (activeCat !== "All") return;
+    if (trendingList.length <= 3) return;
 
-    const t = setInterval(() => {
-      setTrendIndex((prev) => (prev + 1) % trending.length);
-    }, 5000);
+    const t = window.setInterval(() => {
+      setTrendIndex((x) => x + 1);
+    }, ROTATE_MS);
 
-    return () => clearInterval(t);
-  }, [trending.length, selectedCategory]);
+    return () => window.clearInterval(t);
+  }, [activeCat, trendingList.length]);
 
-  const trending3 = useMemo(() => {
-    if (trending.length === 0) return [];
-    const a = trending[trendIndex % trending.length];
-    const b = trending[(trendIndex + 1) % trending.length];
-    const c = trending[(trendIndex + 2) % trending.length];
+  const triple = useMemo(() => {
+    if (trendingList.length === 0) return [];
+    const n = trendingList.length;
+    const a = trendingList[trendIndex % n];
+    const b = trendingList[(trendIndex + 1) % n];
+    const c = trendingList[(trendIndex + 2) % n];
+    return [a, b, c] as Product[];
+  }, [trendingList, trendIndex]);
 
-    // remove duplicates if less products
-    const uniq: Product[] = [];
-    for (const it of [a, b, c]) {
-      if (!uniq.find((x) => x.id === it.id)) uniq.push(it);
-    }
-    return uniq;
-  }, [trending, trendIndex]);
+  function handleAdd(p: Product) {
+    addItem({ id: p.id, name: p.title, price: p.price });
+  }
 
-  function handlePickCategory(cat: string) {
-    setSelectedCategory(cat);
+  function selectCategory(c: string) {
+    setActiveCat(c);
     setDrawerOpen(false);
   }
 
-  function ProductCard({
-    p,
-    emphasis = false,
-  }: {
-    p: Product;
-    emphasis?: boolean;
-  }) {
-    return (
-      <div
-        className={[
-          "rounded-2xl border border-zinc-800 bg-zinc-900/60 overflow-hidden",
-          "hover:bg-zinc-900 transition",
-          emphasis ? "scale-[1.05]" : "",
-        ].join(" ")}
-      >
-        <div className="relative h-44 bg-zinc-800">
-          {p.imageUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={p.imageUrl} alt={p.title} className="h-full w-full object-cover" />
-          ) : (
-            <div className="h-full w-full flex items-center justify-center text-gray-400 text-sm">
-              No Image
-            </div>
-          )}
-        </div>
-
-        <div className="p-4">
-          <p className="font-semibold text-white line-clamp-2">{p.title}</p>
-
-          <div className="mt-2">
-            <StarRow />
-          </div>
-
-          <div className="mt-2 flex items-center justify-between">
-            <p className="font-bold text-pink-400">৳ {p.price}</p>
-
-            <button
-              onClick={() => addItem({ id: p.id, name: p.title, price: p.price })}
-              className="px-4 py-2 rounded-lg border border-zinc-700 bg-black hover:bg-zinc-900 text-sm"
-              type="button"
-            >
-              Add To Cart
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const viewingText = activeCat === "All" ? "Viewing Trending" : `Viewing: ${activeCat}`;
 
   return (
-    <div className="w-full bg-black">
-      {/* Top spacing row: hamburger + hero + viewing trending */}
-      <div className="max-w-6xl mx-auto px-6 pt-10">
-        <div className="grid grid-cols-12 items-start gap-6">
-          {/* Hamburger */}
-          <div className="col-span-12 md:col-span-2 flex items-center">
-            <button
-              onClick={() => setDrawerOpen(true)}
-              className="h-11 w-11 rounded-xl border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 flex items-center justify-center"
-              type="button"
-              aria-label="Open categories"
-              title="Categories"
-            >
-              <MenuIcon />
-            </button>
-          </div>
-
-          {/* Hero middle */}
-          <div className="col-span-12 md:col-span-8">
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-8">
-              <p className="text-sm text-gray-300">Welcome</p>
-
-              <div className="mt-2 flex items-center gap-3">
-                <h1 className="text-3xl md:text-4xl font-bold">
-                  Amr Cosmetics{" "}
-                  <span className="text-pink-500">Store</span>
-                </h1>
-              </div>
-
-              <p className="mt-4 text-gray-300 text-sm md:text-base">
-                Beauty that belongs to you
-              </p>
-
-              <div className="mt-6 flex flex-wrap gap-3">
-                <Link
-                  href="/products"
-                  className="bg-pink-500 hover:bg-pink-600 px-6 py-3 rounded-xl font-semibold"
-                >
-                  Shop Products
-                </Link>
-
-                <Link
-                  href="/account/coupons"
-                  className="border border-zinc-700 hover:border-pink-500 px-6 py-3 rounded-xl font-semibold"
-                >
-                  My Coupons
-                </Link>
-
-                <Link
-                  href="/cart"
-                  className="border border-zinc-700 hover:border-pink-500 px-6 py-3 rounded-xl font-semibold"
-                >
-                  Cart
-                </Link>
-              </div>
-            </div>
-          </div>
-
-          {/* Viewing trending */}
-          <div className="col-span-12 md:col-span-2 flex md:justify-end">
-            <div className="text-sm text-gray-300 mt-1">
-              {selectedCategory === "All" ? (
-                <span className="text-gray-200">Viewing Trending</span>
-              ) : (
-                <span className="text-gray-200">Category: {selectedCategory}</span>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Trending OR Category products */}
-        <div className="mt-10 pb-16">
-          {selectedCategory === "All" ? (
-            <>
-              <div className="flex items-end justify-between">
-                <h2 className="text-xl font-bold text-white">Trending</h2>
-                <p className="text-xs text-gray-400">Auto update every 5 seconds</p>
-              </div>
-
-              {trending3.length === 0 ? (
-                <div className="mt-6 rounded-xl border border-zinc-800 bg-zinc-900/40 p-6 text-gray-300">
-                  এখনো কোনো product নেই। Admin থেকে product add করলে এখানে দেখাবে।
-                </div>
-              ) : (
-                <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
-                  <ProductCard p={trending3[0]} />
-                  {trending3[1] && <ProductCard p={trending3[1]} emphasis />}
-                  {trending3[2] && <ProductCard p={trending3[2]} />}
-                </div>
-              )}
-            </>
-          ) : (
-            <>
-              <div className="flex items-end justify-between">
-                <h2 className="text-xl font-bold text-white">{selectedCategory}</h2>
-                <button
-                  onClick={() => setSelectedCategory("All")}
-                  className="text-sm text-pink-400 hover:text-pink-300"
-                  type="button"
-                >
-                  Back to Trending
-                </button>
-              </div>
-
-              {categoryProducts.length === 0 ? (
-                <div className="mt-6 rounded-xl border border-zinc-800 bg-zinc-900/40 p-6 text-gray-300">
-                  এই category তে এখনো কোনো product নেই।
-                </div>
-              ) : (
-                <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-                  {categoryProducts.map((p) => (
-                    <ProductCard key={p.id} p={p} />
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      </div>
+    <div className="w-full bg-black text-white">
+      {/* Drawer overlay */}
+      <div
+        className={`fixed inset-0 z-40 bg-black/60 transition ${
+          drawerOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+        }`}
+        onClick={() => setDrawerOpen(false)}
+      />
 
       {/* Drawer */}
-      {drawerOpen && (
-        <div className="fixed inset-0 z-50">
+      <aside
+        className={`fixed top-0 left-0 h-full w-[300px] z-50 bg-zinc-950 border-r border-zinc-800 transition-transform ${
+          drawerOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        <div className="p-5 flex items-center justify-between border-b border-zinc-800">
+          <p className="font-semibold text-white text-sm">Browse Categories</p>
           <button
-            className="absolute inset-0 bg-black/60"
+            className="h-9 w-9 rounded bg-zinc-900 border border-zinc-800 hover:border-pink-500"
             onClick={() => setDrawerOpen(false)}
             type="button"
-            aria-label="Close drawer"
-          />
+            aria-label="Close"
+          >
+            ✕
+          </button>
+        </div>
 
-          <div className="absolute left-0 top-0 h-full w-[320px] bg-zinc-950 border-r border-zinc-800 p-5">
-            <div className="flex items-center justify-between">
-              <p className="font-semibold text-white">Categories</p>
+        <div className="p-3">
+          {categories.map((c) => {
+            const isActive = c === activeCat;
+            return (
               <button
-                onClick={() => setDrawerOpen(false)}
-                className="text-gray-300 hover:text-white"
+                key={c}
                 type="button"
+                onClick={() => selectCategory(c)}
+                className={`w-full text-left px-4 py-3 rounded mb-2 border transition text-sm ${
+                  isActive
+                    ? "bg-pink-500/15 border-pink-500 text-pink-300"
+                    : "bg-zinc-900 border-zinc-800 text-gray-200 hover:border-pink-500"
+                }`}
               >
-                ✕
+                {c}
               </button>
-            </div>
+            );
+          })}
+        </div>
+      </aside>
 
-            <div className="mt-4 space-y-2">
-              {categories.map((cat) => (
-                <button
-                  key={cat}
-                  onClick={() => handlePickCategory(cat)}
-                  className={[
-                    "w-full text-left px-4 py-3 rounded-xl border border-zinc-800",
-                    "bg-zinc-900/40 hover:bg-zinc-900",
-                    selectedCategory.toLowerCase() === cat.toLowerCase()
-                      ? "border-pink-500"
-                      : "",
-                  ].join(" ")}
-                  type="button"
-                >
-                  {cat}
-                </button>
-              ))}
-            </div>
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        {/* Top row: hamburger + centered viewing label */}
+        <div className="flex items-center justify-between mb-8">
+          <button
+            type="button"
+            onClick={() => setDrawerOpen(true)}
+            className="h-12 w-12 rounded-2xl bg-zinc-900 border border-zinc-800 hover:border-pink-500 flex items-center justify-center"
+            aria-label="Open categories"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M4 7h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              <path d="M4 12h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              <path d="M4 17h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+          </button>
 
-            <div className="mt-6 border-t border-zinc-800 pt-4">
-              <Link
-                href="/account/spin"
-                className="block w-full text-center px-4 py-3 rounded-xl border border-zinc-800 bg-zinc-900/40 hover:bg-zinc-900 text-gray-100"
-                onClick={() => setDrawerOpen(false)}
+          <div className="flex-1 text-center">
+            <p className="text-sm text-gray-300">{viewingText}</p>
+            {activeCat === "All" ? (
+              <p className="text-xs text-gray-500 mt-1">Auto updates every 5 seconds</p>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setActiveCat("All")}
+                className="text-xs text-pink-400 hover:text-pink-300 mt-1"
               >
-                Spin to Win
-              </Link>
-            </div>
+                Back to Trending
+              </button>
+            )}
+          </div>
+
+          <div className="w-12" />
+        </div>
+
+        {/* Hero */}
+        <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 md:p-10">
+          <p className="text-xs text-gray-400">Amr Cosmetics</p>
+          <h1 className="text-3xl md:text-4xl font-bold mt-2">
+            Beauty that belongs to <span className="text-pink-500">you</span>
+          </h1>
+          <p className="text-sm text-gray-300 mt-3 max-w-2xl">
+            Premium beauty essentials and lifestyle picks, curated with care for everyday confidence.
+          </p>
+
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Link
+              href="/products"
+              className="bg-pink-500 hover:bg-pink-600 px-5 py-2.5 rounded-xl font-semibold text-sm"
+            >
+              Shop Products
+            </Link>
+
+            <Link
+              href="/account/coupons"
+              className="bg-black border border-zinc-800 hover:border-pink-500 px-5 py-2.5 rounded-xl font-semibold text-sm"
+            >
+              My Coupons
+            </Link>
+
+            <Link
+              href="/cart"
+              className="bg-black border border-zinc-800 hover:border-pink-500 px-5 py-2.5 rounded-xl font-semibold text-sm"
+            >
+              Cart
+            </Link>
           </div>
         </div>
-      )}
+
+        {/* Trending */}
+        {activeCat === "All" ? (
+          <div className="mt-10">
+            <div className="flex items-end justify-between">
+              <div>
+                <h2 className="text-lg font-semibold">Trending</h2>
+                <p className="text-sm text-gray-400 mt-1">Latest products from your store</p>
+              </div>
+
+              <Link href="/products" className="text-sm text-pink-400 hover:text-pink-300">
+                View all →
+              </Link>
+            </div>
+
+            {triple.length === 0 ? (
+              <div className="mt-6 bg-zinc-900 border border-zinc-800 rounded-2xl p-6 text-gray-400">
+                এখনো কোনো product নেই, admin থেকে product add করলে এখানে দেখাবে।
+              </div>
+            ) : (
+              <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+                <ProductCardHome p={triple[0]} size="sm" onAdd={() => handleAdd(triple[0])} />
+                <div className="md:-translate-y-2">
+                  <ProductCardHome p={triple[1]} size="lg" onAdd={() => handleAdd(triple[1])} />
+                </div>
+                <ProductCardHome p={triple[2]} size="sm" onAdd={() => handleAdd(triple[2])} />
+              </div>
+            )}
+          </div>
+        ) : (
+          /* Category view */
+          <div className="mt-10">
+            <div className="flex items-end justify-between">
+              <div>
+                <h2 className="text-lg font-semibold">{activeCat}</h2>
+                <p className="text-sm text-gray-400 mt-1">Products in this category</p>
+              </div>
+
+              <Link href="/products" className="text-sm text-pink-400 hover:text-pink-300">
+                Open Products →
+              </Link>
+            </div>
+
+            {filteredProducts.length === 0 ? (
+              <div className="mt-6 bg-zinc-900 border border-zinc-800 rounded-2xl p-6 text-gray-400">
+                এই category তে এখনো কোনো product নেই।
+              </div>
+            ) : (
+              <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                {filteredProducts.slice(0, 12).map((p) => (
+                  <ProductCardHome key={p.id} p={p} size="sm" onAdd={() => handleAdd(p)} />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
