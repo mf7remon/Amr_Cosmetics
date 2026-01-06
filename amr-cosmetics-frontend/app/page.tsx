@@ -7,15 +7,31 @@ import { Product, safeReadProducts } from "@/app/lib/productsStore";
 
 const ROTATE_MS = 5000;
 
+const FIXED_CATEGORIES = [
+  "Clothing",
+  "Bags",
+  "Jewellery",
+  "Beauty care",
+  "Footware",
+  "Gift",
+  "Tech Accessories",
+];
+
 function normalize(s: string) {
   return String(s ?? "").trim().toLowerCase();
 }
 
 function buildCategories(products: Product[]) {
   const set = new Set<string>();
+
+  // fixed ones always
+  for (const c of FIXED_CATEGORIES) set.add(c);
+
+  // dynamic from products
   for (const p of products) {
     if (p.category?.trim()) set.add(p.category.trim());
   }
+
   const cats = Array.from(set).sort((a, b) => a.localeCompare(b));
   return ["All", ...cats];
 }
@@ -37,8 +53,8 @@ function ProductCardHome({
 }) {
   const img = p.imageUrl?.trim() ?? "";
   const h = size === "lg" ? "h-56" : "h-48";
-  const titleSize = size === "lg" ? "text-base" : "text-sm";
-  const priceSize = size === "lg" ? "text-base" : "text-sm";
+  const titleSize = size === "lg" ? "text-[15px]" : "text-[13px]";
+  const priceSize = size === "lg" ? "text-[15px]" : "text-[13px]";
 
   return (
     <div className="bg-zinc-950 border border-zinc-800 rounded-2xl overflow-hidden hover:border-pink-500 transition">
@@ -99,12 +115,28 @@ export default function Home() {
   const [trendIndex, setTrendIndex] = useState(0);
 
   useEffect(() => {
-    setProducts(safeReadProducts());
+    const load = () => setProducts(safeReadProducts());
 
-    const onFocus = () => setProducts(safeReadProducts());
+    load();
+
+    const onFocus = () => load();
+
+    const onStorage = (e: StorageEvent) => {
+      // keep sync if other tab changes
+      if (e.key === "amr_products") load();
+    };
+
+    const onCustom = () => load();
+
     window.addEventListener("focus", onFocus);
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("amr-products-updated", onCustom as any);
 
-    return () => window.removeEventListener("focus", onFocus);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("amr-products-updated", onCustom as any);
+    };
   }, []);
 
   const categories = useMemo(() => buildCategories(products), [products]);
@@ -116,6 +148,12 @@ export default function Home() {
     return products.filter((p) => normalize(p.category) === normalize(activeCat));
   }, [products, activeCat]);
 
+  // reset index when product list changes
+  useEffect(() => {
+    setTrendIndex(0);
+  }, [trendingList.length]);
+
+  // rotate only in All mode
   useEffect(() => {
     if (activeCat !== "All") return;
     if (trendingList.length <= 3) return;
@@ -144,8 +182,6 @@ export default function Home() {
     setActiveCat(c);
     setDrawerOpen(false);
   }
-
-  const viewingText = activeCat === "All" ? "Viewing Trending" : `Viewing: ${activeCat}`;
 
   return (
     <div className="w-full bg-black text-white">
@@ -197,74 +233,47 @@ export default function Home() {
       </aside>
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        {/* Top row: hamburger + centered viewing label */}
-        <div className="flex items-center justify-between mb-8">
-          <button
-            type="button"
-            onClick={() => setDrawerOpen(true)}
-            className="h-12 w-12 rounded-2xl bg-zinc-900 border border-zinc-800 hover:border-pink-500 flex items-center justify-center"
-            aria-label="Open categories"
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-              <path d="M4 7h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-              <path d="M4 12h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-              <path d="M4 17h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-            </svg>
-          </button>
+        {/* HERO (clean, no buttons) */}
+        <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 md:p-8">
+          {/* top bar inside hero: hamburger + centered label */}
+          <div className="flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => setDrawerOpen(true)}
+              className="h-11 w-11 rounded-2xl bg-zinc-950 border border-zinc-800 hover:border-pink-500 flex items-center justify-center"
+              aria-label="Open categories"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <path d="M4 7h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                <path d="M4 12h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                <path d="M4 17h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            </button>
 
-          <div className="flex-1 text-center">
-            <p className="text-sm text-gray-300">{viewingText}</p>
-            {activeCat === "All" ? (
-              <p className="text-xs text-gray-500 mt-1">Auto updates every 5 seconds</p>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setActiveCat("All")}
-                className="text-xs text-pink-400 hover:text-pink-300 mt-1"
-              >
-                Back to Trending
-              </button>
-            )}
+            <div className="flex-1 text-center">
+              <p className="text-[11px] text-gray-400">
+                {activeCat === "All" ? "Trending" : "Category"}
+              </p>
+              <p className="text-sm font-semibold text-gray-200 mt-1">
+                {activeCat === "All" ? "Latest picks for you" : activeCat}
+              </p>
+            </div>
+
+            <div className="w-11" />
           </div>
 
-          <div className="w-12" />
-        </div>
-
-        {/* Hero */}
-        <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 md:p-10">
-          <p className="text-xs text-gray-400">Amr Cosmetics</p>
-          <h1 className="text-3xl md:text-4xl font-bold mt-2">
-            Beauty that belongs to <span className="text-pink-500">you</span>
-          </h1>
-          <p className="text-sm text-gray-300 mt-3 max-w-2xl">
-            Premium beauty essentials and lifestyle picks, curated with care for everyday confidence.
-          </p>
-
-          <div className="mt-6 flex flex-wrap gap-3">
-            <Link
-              href="/products"
-              className="bg-pink-500 hover:bg-pink-600 px-5 py-2.5 rounded-xl font-semibold text-sm"
-            >
-              Shop Products
-            </Link>
-
-            <Link
-              href="/account/coupons"
-              className="bg-black border border-zinc-800 hover:border-pink-500 px-5 py-2.5 rounded-xl font-semibold text-sm"
-            >
-              My Coupons
-            </Link>
-
-            <Link
-              href="/cart"
-              className="bg-black border border-zinc-800 hover:border-pink-500 px-5 py-2.5 rounded-xl font-semibold text-sm"
-            >
-              Cart
-            </Link>
+          <div className="mt-6">
+            <p className="text-[11px] text-gray-400">Amr Cosmetics</p>
+            <h1 className="text-2xl md:text-3xl font-bold mt-2">
+              Beauty that belongs to <span className="text-pink-500">you</span>
+            </h1>
+            <p className="text-sm text-gray-300 mt-3 max-w-2xl">
+              Premium beauty essentials and lifestyle picks, curated with care for everyday confidence.
+            </p>
           </div>
         </div>
 
-        {/* Trending */}
+        {/* CONTENT */}
         {activeCat === "All" ? (
           <div className="mt-10">
             <div className="flex items-end justify-between">
@@ -293,7 +302,6 @@ export default function Home() {
             )}
           </div>
         ) : (
-          /* Category view */
           <div className="mt-10">
             <div className="flex items-end justify-between">
               <div>
@@ -323,3 +331,4 @@ export default function Home() {
     </div>
   );
 }
+//remon

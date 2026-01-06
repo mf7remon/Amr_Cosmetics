@@ -1,116 +1,135 @@
+// app/components/Navbar.tsx
 "use client";
 
-import Link from "next/link";
 import Image from "next/image";
-import { useCart } from "@/app/context/CartContext";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import React, { useMemo } from "react";
+
 import { useAuth } from "@/app/context/AuthContext";
+import { useCart } from "@/app/context/CartContext";
 
-type CartItemLike = { quantity?: number; qty?: number };
-
-type CartContextLike = {
-  totalItems?: number;
-  cartItems?: CartItemLike[];
-  items?: CartItemLike[];
-};
-
-function getTotalItems(cart: CartContextLike): number {
-  if (typeof cart.totalItems === "number") return cart.totalItems;
-
-  const list = Array.isArray(cart.cartItems)
-    ? cart.cartItems
-    : Array.isArray(cart.items)
-    ? cart.items
-    : [];
-
-  return list.reduce((sum, it) => sum + (it.qty ?? it.quantity ?? 1), 0);
+function NavLink({
+  href,
+  label,
+  active,
+  children,
+}: {
+  href: string;
+  label: string;
+  active: boolean;
+  children?: React.ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      className={[
+        "relative text-sm font-medium transition-colors",
+        active ? "text-white" : "text-gray-300 hover:text-white",
+      ].join(" ")}
+      aria-label={label}
+    >
+      {children ?? label}
+      {active ? (
+        <span className="absolute -bottom-2 left-0 h-[2px] w-full rounded bg-pink-500" />
+      ) : null}
+    </Link>
+  );
 }
 
 export default function Navbar() {
-  const cart = useCart() as unknown as CartContextLike;
+  const pathname = usePathname();
+  const router = useRouter();
+
   const { user, isLoggedIn, logout } = useAuth();
-  const totalItems = getTotalItems(cart);
+  const { items } = useCart();
+
+  const cartCount = useMemo(() => {
+    if (!Array.isArray(items)) return 0;
+    return items.reduce((sum, it: any) => sum + (Number(it?.qty) || 0), 0);
+  }, [items]);
+
+  const isActive = (href: string) => {
+    if (href === "/") return pathname === "/";
+    return pathname?.startsWith(href);
+  };
+
+  const onLogout = () => {
+    logout();
+    router.push("/");
+  };
 
   return (
-    <nav className="flex items-center justify-between px-6 py-4 bg-black text-white border-b border-zinc-900">
-      <Link href="/" className="flex items-center gap-3">
-        <Image
-          src="/logo.png"
-          alt="Amr Cosmetics"
-          width={140}
-          height={56}
-          className="h-10 w-auto object-contain"
-          priority
-        />
-      </Link>
+    <header className="w-full border-b border-white/10 bg-black">
+      {/* Top bar */}
+      <div className="mx-auto flex h-20 max-w-6xl items-center justify-between px-4 sm:px-6 lg:px-8">
+        {/* Logo left */}
+        <Link href="/" className="flex items-center">
+          <Image
+            src="/logo.png"
+            alt="Amr Cosmetics"
+            width={220}
+            height={80}
+            priority
+            className="h-14 w-auto object-contain"
+          />
+        </Link>
 
-      <ul className="flex gap-6 items-center">
-        <li>
-          <Link className="hover:text-pink-400" href="/">
+        {/* Right menu */}
+        <nav className="flex items-center gap-6">
+          <NavLink href="/" label="Home" active={isActive("/")}>
             Home
-          </Link>
-        </li>
+          </NavLink>
 
-        <li>
-          <Link className="hover:text-pink-400" href="/products">
+          <NavLink href="/products" label="Products" active={isActive("/products")}>
             Products
-          </Link>
-        </li>
+          </NavLink>
 
-        <li>
-          <Link className="hover:text-pink-400" href="/blogs">
+          <NavLink href="/blogs" label="Blogs" active={isActive("/blogs")}>
             Blogs
-          </Link>
-        </li>
+          </NavLink>
 
-        <li className="relative">
-          <Link className="hover:text-pink-400" href="/cart">
-            Cart
-          </Link>
+          <NavLink href="/cart" label="Cart" active={isActive("/cart")}>
+            <span className="inline-flex items-center gap-2">
+              <span>Cart</span>
 
-          {totalItems > 0 && (
-            <span className="absolute -top-2 -right-3 text-xs bg-pink-500 text-white px-2 py-0.5 rounded-full">
-              {totalItems}
+              <span className="relative inline-flex items-center">
+                {cartCount > 0 ? (
+                  <span className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-pink-500 px-1.5 text-xs font-bold text-black">
+                    {cartCount}
+                  </span>
+                ) : null}
+              </span>
             </span>
+          </NavLink>
+
+          {isLoggedIn ? (
+            <NavLink href="/account" label="Account" active={isActive("/account")}>
+              Account
+            </NavLink>
+          ) : (
+            <NavLink href="/login" label="Login" active={isActive("/login")}>
+              Login
+            </NavLink>
           )}
-        </li>
 
-        {!isLoggedIn ? (
-          <>
-            <li>
-              <Link className="hover:text-pink-400" href="/login">
-                Login
-              </Link>
-            </li>
-            <li>
-              <Link className="hover:text-pink-400" href="/register">
-                Register
-              </Link>
-            </li>
-          </>
-        ) : (
-          <>
-            <li>
-              <Link className="hover:text-pink-400" href="/account">
-                Account
-              </Link>
-            </li>
+          {user?.role === "ADMIN" ? (
+            <NavLink href="/admin" label="Admin" active={isActive("/admin")}>
+              Admin
+            </NavLink>
+          ) : null}
 
-            {user?.role === "ADMIN" && (
-              <li>
-                <Link className="hover:text-pink-400" href="/admin">
-                  Admin
-                </Link>
-              </li>
-            )}
-
-            <li>
-              <button className="hover:text-pink-400" onClick={logout} type="button">
-                Logout
-              </button>
-            </li>
-          </>
-        )}
-      </ul>
-    </nav>
+          {isLoggedIn ? (
+            <button
+              type="button"
+              onClick={onLogout}
+              className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+            >
+              Logout
+            </button>
+          ) : null}
+        </nav>
+      </div>
+    </header>
   );
 }
