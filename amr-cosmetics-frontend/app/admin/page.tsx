@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 
 import { safeReadProducts } from "@/app/lib/productsStore";
@@ -54,6 +54,7 @@ function dedupeById(list: AnyOrder[]): AnyOrder[] {
   for (const o of list) {
     const id = getOrderId(o);
     if (!id) continue;
+
     if (!map.has(id)) map.set(id, o);
     else {
       const prev = map.get(id)!;
@@ -177,9 +178,7 @@ export default function AdminPage() {
       <div className="max-w-6xl mx-auto px-6 py-12 text-white">
         <div className="flex items-start md:items-center justify-between flex-col md:flex-row gap-4">
           <div>
-            <h1 className="text-3xl md:text-4xl font-bold text-pink-500">
-              Admin Dashboard
-            </h1>
+            <h1 className="text-3xl md:text-4xl font-bold text-pink-500">Admin Dashboard</h1>
             <p className="text-gray-300 mt-2">
               Welcome, <span className="text-white font-semibold">{user.name}</span> — manage your store here.
             </p>
@@ -206,10 +205,12 @@ export default function AdminPage() {
             <p className="text-gray-400 text-sm">Total Products</p>
             <p className="text-2xl font-bold mt-2">{totalProducts}</p>
           </div>
+
           <div className="bg-zinc-900 border border-zinc-800 rounded p-5">
             <p className="text-gray-400 text-sm">Orders Today</p>
             <p className="text-2xl font-bold mt-2">{ordersToday}</p>
           </div>
+
           <div className="bg-zinc-900 border border-zinc-800 rounded p-5">
             <p className="text-gray-400 text-sm">Active Coupons</p>
             <p className="text-2xl font-bold mt-2">4</p>
@@ -218,7 +219,8 @@ export default function AdminPage() {
 
         <h2 className="text-xl font-semibold mt-10 mb-4">Quick Actions</h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* ✅ এখানে Blogs add করা হলো */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Link
             href="/admin/products"
             className="bg-zinc-900 border border-zinc-800 rounded p-6 hover:bg-zinc-800 transition"
@@ -245,14 +247,24 @@ export default function AdminPage() {
             <p className="text-gray-300 text-sm mt-2">Manage discount coupons</p>
             <p className="text-pink-400 text-sm mt-4">Open →</p>
           </Link>
+
+          <Link
+            href="/admin/blogs"
+            className="bg-zinc-900 border border-zinc-800 rounded p-6 hover:bg-zinc-800 transition"
+          >
+            <h3 className="text-xl font-bold">Blogs</h3>
+            <p className="text-gray-300 text-sm mt-2">Add / Edit / Remove blogs</p>
+            <p className="text-pink-400 text-sm mt-4">Open →</p>
+          </Link>
         </div>
 
         <div className="mt-10 bg-zinc-900 border border-zinc-800 rounded p-5">
-          <p className="text-gray-300">Next we will build these pages:</p>
+          <p className="text-gray-300">Admin pages:</p>
           <ul className="list-disc pl-6 mt-2 text-gray-400">
             <li>/admin/products</li>
             <li>/admin/orders</li>
             <li>/admin/coupons</li>
+            <li>/admin/blogs</li>
           </ul>
         </div>
       </div>

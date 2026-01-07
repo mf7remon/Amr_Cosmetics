@@ -20,19 +20,36 @@ export default function ProductCard({ product }: { product: Product }) {
     window.setTimeout(() => setAdded(false), 900);
   };
 
+  const img = product.imageUrl?.trim();
+
   return (
     <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden shadow">
-      <div className="h-44 bg-zinc-800 flex items-center justify-center">
-        {product.imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={product.imageUrl}
-            alt={product.title}
-            className="h-full w-full object-cover"
-            loading="lazy"
-          />
+      {/* Image area: full image (no crop) + blurred background for better look */}
+      <div className="relative h-56 bg-zinc-950 overflow-hidden">
+        {img ? (
+          <>
+            {/* blurred background layer */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={img}
+              alt=""
+              className="absolute inset-0 h-full w-full object-cover blur-2xl opacity-25 scale-110"
+              aria-hidden="true"
+            />
+
+            {/* main image (never cropped) */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={img}
+              alt={product.title}
+              className="relative z-10 h-full w-full object-contain p-3"
+              loading="lazy"
+            />
+          </>
         ) : (
-          <span className="text-gray-400">No Image</span>
+          <div className="h-full w-full flex items-center justify-center text-gray-400">
+            No Image
+          </div>
         )}
       </div>
 

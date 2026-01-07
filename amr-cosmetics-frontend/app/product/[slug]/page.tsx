@@ -118,12 +118,35 @@ export default function ProductDetailsPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="border border-zinc-800 bg-zinc-900 rounded-xl overflow-hidden">
-          <div className="h-[360px] bg-zinc-800 flex items-center justify-center">
+          {/* ✅ ONLY UPDATED THIS IMAGE PART */}
+          <div className="relative h-[360px] bg-zinc-800 overflow-hidden">
             {img ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={img} alt={product.title} className="h-full w-full object-cover" />
+              <>
+                {/* blurred background */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={img}
+                  alt=""
+                  aria-hidden="true"
+                  className="absolute inset-0 h-full w-full object-cover blur-2xl scale-110 opacity-40"
+                  loading="lazy"
+                />
+
+                {/* full image (no crop) */}
+                <div className="relative h-full w-full flex items-center justify-center p-4">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={img}
+                    alt={product.title}
+                    className="max-h-full max-w-full object-contain"
+                    loading="lazy"
+                  />
+                </div>
+              </>
             ) : (
-              <span className="text-gray-400">No Image</span>
+              <div className="h-full w-full flex items-center justify-center">
+                <span className="text-gray-400">No Image</span>
+              </div>
             )}
           </div>
         </div>

@@ -61,17 +61,20 @@ export default function Navbar() {
 
   return (
     <header className="w-full border-b border-white/10 bg-black">
-      {/* Top bar */}
       <div className="mx-auto flex h-20 max-w-6xl items-center justify-between px-4 sm:px-6 lg:px-8">
         {/* Logo left */}
-        <Link href="/" className="flex items-center">
+        <Link
+          href="/"
+          className="relative h-20 w-[190px] sm:w-[220px] shrink-0"
+          aria-label="Amr Cosmetics Home"
+        >
           <Image
             src="/logo.png"
             alt="Amr Cosmetics"
-            width={220}
-            height={80}
+            fill
             priority
-            className="h-14 w-auto object-contain"
+            sizes="(max-width: 640px) 190px, 220px"
+            className="object-contain"
           />
         </Link>
 
@@ -92,7 +95,6 @@ export default function Navbar() {
           <NavLink href="/cart" label="Cart" active={isActive("/cart")}>
             <span className="inline-flex items-center gap-2">
               <span>Cart</span>
-
               <span className="relative inline-flex items-center">
                 {cartCount > 0 ? (
                   <span className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-pink-500 px-1.5 text-xs font-bold text-black">
