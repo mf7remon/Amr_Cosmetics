@@ -9,6 +9,6 @@ export const SITE = {
 export const CONTACT = {
   email: "amrcosmetics420@gmail.com",
   phone: "01302180147",
-  facebook: "https://www.facebook.com/profile.php?id=61586195755598",
+  facebook: "https://www.facebook.com/amrcosmeticsbd",
   instagram: "https://www.instagram.com/amr_cosmetics_/",
 };

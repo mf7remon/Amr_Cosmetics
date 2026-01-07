@@ -4,7 +4,9 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
-import { addOrderToStorage, makeOrderId, Order } from "@/app/lib/ordersStore";
+import * as OrdersStore from "@/app/lib/ordersStore";
+
+type ShippingZone = "INSIDE_DHAKA" | "OUTSIDE_DHAKA";
 
 export default function CheckoutPage() {
   const {
@@ -28,7 +30,10 @@ export default function CheckoutPage() {
   const [address, setAddress] = useState("");
   const [city, setCity] = useState("");
 
-  const shippingFee = 0;
+  const [shippingZone, setShippingZone] = useState<ShippingZone>("INSIDE_DHAKA");
+  const shippingFee = shippingZone === "INSIDE_DHAKA" ? 50 : 100;
+
+  const [paymentMethod, setPaymentMethod] = useState("SSLCommerz (bKash / Card / Nagad)");
 
   const grandTotal = useMemo(() => Math.max(0, total + shippingFee), [total, shippingFee]);
 
@@ -47,42 +52,44 @@ export default function CheckoutPage() {
       return;
     }
 
-    const email = isLoggedIn && user?.email ? user.email : "guest";
+    const now = Date.now();
+    const orderId = OrdersStore.makeOrderId();
 
-    const order: Order = {
-      id: makeOrderId(),
+    const order: OrdersStore.Order = {
+      id: orderId,
+
       customerName: name.trim(),
-      customerEmail: email,
+      customerEmail: isLoggedIn && user?.email ? user.email : "guest",
       phone: phone.trim(),
       address: address.trim(),
       city: city.trim(),
-      paymentMethod: "SSLCommerz (Demo)",
+
+      paymentMethod: paymentMethod,
+
       items: items.map((it) => ({
         id: it.id,
         name: it.name,
         price: it.price,
         qty: it.qty,
       })),
-      subtotal,
-      discountAmount,
+
+      subtotal: subtotal,
+      discountAmount: discountAmount,
       total: grandTotal,
+
       coupon: appliedCoupon
-        ? {
-            code: appliedCoupon.code,
-            type: appliedCoupon.type,
-            value: appliedCoupon.value,
-          }
+        ? { code: appliedCoupon.code, type: "PERCENT", value: appliedCoupon.value }
         : null,
+
       status: "PENDING",
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
+      createdAt: now,
+      updatedAt: now,
     };
 
-    // ✅ Save order so admin can manage it
-    addOrderToStorage(order);
+    // ✅ This is the missing part (admin panel reads from this storage)
+    OrdersStore.addOrderToStorage(order);
 
-    // ✅ Keep your existing behavior (demo alert + clear)
-    alert(`Order placed (demo).\nOrder ID: ${order.id}\nAdmin can update status from Admin → Orders.`);
+    alert(`Order placed successfully.\nOrder ID: ${orderId}`);
     clearCart();
   }
 
@@ -100,7 +107,7 @@ export default function CheckoutPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-            {/* LEFT: Delivery form + Coupon */}
+            {/* LEFT */}
             <div className="lg:col-span-2 space-y-6">
               {/* Delivery Details */}
               <div className="bg-zinc-900 p-6 rounded">
@@ -144,19 +151,31 @@ export default function CheckoutPage() {
                   </div>
 
                   <div>
+                    <label className="block text-sm text-gray-300 mb-1">Shipping Zone</label>
+                    <select
+                      value={shippingZone}
+                      onChange={(e) => setShippingZone(e.target.value as ShippingZone)}
+                      className="w-full px-3 py-2 rounded bg-zinc-800 text-white outline-none"
+                    >
+                      <option value="INSIDE_DHAKA">Inside Dhaka (৳ 50)</option>
+                      <option value="OUTSIDE_DHAKA">Outside Dhaka (৳ 100)</option>
+                    </select>
+                  </div>
+
+                  <div className="md:col-span-2">
                     <label className="block text-sm text-gray-300 mb-1">Payment Method</label>
-                    <select className="w-full px-3 py-2 rounded bg-zinc-800 text-white outline-none">
+                    <select
+                      value={paymentMethod}
+                      onChange={(e) => setPaymentMethod(e.target.value)}
+                      className="w-full px-3 py-2 rounded bg-zinc-800 text-white outline-none"
+                    >
                       <option>SSLCommerz (bKash / Card / Nagad)</option>
                     </select>
                   </div>
                 </div>
-
-                <p className="text-xs text-gray-400 mt-4">
-                  Note: Order save হবে frontend localStorage এ, payment পরে backend + SSLCommerz এ হবে।
-                </p>
               </div>
 
-              {/* Coupon Section */}
+              {/* Coupon */}
               <div className="bg-zinc-900 p-6 rounded">
                 <h2 className="text-xl font-bold mb-3">Coupon</h2>
 
@@ -172,6 +191,7 @@ export default function CheckoutPage() {
                         setCouponMsg("Coupon removed.");
                       }}
                       className="px-4 py-2 rounded bg-zinc-900 hover:bg-black border border-zinc-700"
+                      type="button"
                     >
                       Remove
                     </button>
@@ -186,18 +206,17 @@ export default function CheckoutPage() {
                     <button
                       onClick={handleApplyCoupon}
                       className="px-5 py-2 rounded bg-pink-500 hover:bg-pink-600"
+                      type="button"
                     >
                       Apply
                     </button>
                   </div>
                 )}
 
-                {couponMsg && <p className="mt-3 text-sm text-gray-300">{couponMsg}</p>}
-
-                <p className="mt-3 text-xs text-gray-400">Demo coupons: AMR5, AMR10, GLOW15, BEAUTY20</p>
+                {couponMsg ? <p className="mt-3 text-sm text-gray-300">{couponMsg}</p> : null}
               </div>
 
-              {/* Items preview */}
+              {/* Items */}
               <div className="bg-zinc-900 p-6 rounded">
                 <h2 className="text-xl font-bold mb-4">Items</h2>
                 <div className="space-y-3">
@@ -217,7 +236,7 @@ export default function CheckoutPage() {
               </div>
             </div>
 
-            {/* RIGHT: Summary */}
+            {/* RIGHT */}
             <div className="bg-zinc-900 p-6 rounded lg:sticky lg:top-6">
               <h2 className="text-xl font-bold mb-4">Order Summary</h2>
 
@@ -243,11 +262,17 @@ export default function CheckoutPage() {
                 <span className="text-pink-400">৳ {grandTotal}</span>
               </div>
 
-              <button onClick={handlePlaceOrder} className="mt-5 w-full bg-pink-500 hover:bg-pink-600 py-3 rounded">
-                Place Order (Demo)
+              <button
+                onClick={handlePlaceOrder}
+                className="mt-5 w-full bg-pink-500 hover:bg-pink-600 py-3 rounded"
+                type="button"
+              >
+                Place Order
               </button>
 
-              <p className="mt-3 text-xs text-gray-400">Next step: backend order + SSLCommerz real payment.</p>
+              <p className="mt-3 text-xs text-gray-400">
+                Order place হলে admin panel এ Orders এ সাথে সাথে show করবে।
+              </p>
             </div>
           </div>
         )}
