@@ -24,34 +24,36 @@ export default function ProductCard({ product }: { product: Product }) {
 
   return (
     <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden shadow">
-      {/* Image area: full image (no crop) + blurred background for better look */}
-      <div className="relative h-56 bg-zinc-950 overflow-hidden">
-        {img ? (
-          <>
-            {/* blurred background layer */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={img}
-              alt=""
-              className="absolute inset-0 h-full w-full object-cover blur-2xl opacity-25 scale-110"
-              aria-hidden="true"
-            />
+      {/* ✅ Image area now clickable */}
+      <Link href={`/product/${product.slug}`} className="block">
+        <div className="relative h-64 sm:h-72 bg-zinc-950 overflow-hidden">
+          {img ? (
+            <>
+              {/* blurred background layer */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={img}
+                alt=""
+                className="pointer-events-none select-none absolute inset-0 h-full w-full object-cover blur-2xl opacity-25 scale-110"
+                aria-hidden="true"
+              />
 
-            {/* main image (never cropped) */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={img}
-              alt={product.title}
-              className="relative z-10 h-full w-full object-contain p-3"
-              loading="lazy"
-            />
-          </>
-        ) : (
-          <div className="h-full w-full flex items-center justify-center text-gray-400">
-            No Image
-          </div>
-        )}
-      </div>
+              {/* main image (never cropped) */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={img}
+                alt={product.title}
+                className="pointer-events-none select-none relative z-10 h-full w-full object-contain p-3"
+                loading="lazy"
+              />
+            </>
+          ) : (
+            <div className="h-full w-full flex items-center justify-center text-gray-400">
+              No Image
+            </div>
+          )}
+        </div>
+      </Link>
 
       <div className="p-5">
         {product.category ? (

@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import Link from "next/link";
@@ -13,7 +14,8 @@ import {
 
 function formatDate(iso: string) {
   try {
-    return new Date(iso).toLocaleDateString(undefined, {
+    // ✅ safer parse for "YYYY-MM-DD" to avoid timezone edge cases
+    return new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, {
       year: "numeric",
       month: "long",
       day: "numeric",
@@ -95,7 +97,6 @@ export default function BlogDetailsPage() {
               loading="lazy"
             />
           </div>
-
 
           <div className="p-6 sm:p-8">
             <div className="flex flex-wrap items-center gap-3">

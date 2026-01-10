@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import Link from "next/link";
@@ -6,7 +7,8 @@ import { BlogPost, safeReadBlogs, BLOGS_KEY } from "@/app/lib/blogsStore";
 
 function formatDate(iso: string) {
   try {
-    return new Date(iso).toLocaleDateString(undefined, {
+    // ✅ safer parse for "YYYY-MM-DD" to avoid timezone edge cases
+    return new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, {
       year: "numeric",
       month: "short",
       day: "numeric",
@@ -79,7 +81,6 @@ export default function BlogsPage() {
                       loading="lazy"
                     />
                   </div>
-
                 </Link>
 
                 <div className="p-5">
@@ -100,7 +101,10 @@ export default function BlogsPage() {
 
                   <div className="mt-4 flex items-center justify-between">
                     <span className="text-xs text-gray-500">{formatDate(b.dateISO)}</span>
-                    <Link href={`/blogs/${b.slug}`} className="text-sm text-pink-400 hover:text-pink-300">
+                    <Link
+                      href={`/blogs/${b.slug}`}
+                      className="text-sm text-pink-400 hover:text-pink-300"
+                    >
                       Read more →
                     </Link>
                   </div>
