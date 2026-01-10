@@ -68,11 +68,7 @@ function StarsRow({ value }: { value: number }) {
   return (
     <div className="flex items-center gap-1">
       {Array.from({ length: 5 }).map((_, i) => (
-        <span
-          key={i}
-          className={i < v ? "text-pink-400" : "text-zinc-600"}
-          aria-hidden="true"
-        >
+        <span key={i} className={i < v ? "text-pink-400" : "text-zinc-600"} aria-hidden="true">
           ★
         </span>
       ))}
@@ -114,6 +110,16 @@ export default function ProductDetailsPage() {
     if (!slug) return null;
     return products.find((p) => p.slug === slug) || null;
   }, [products, slug]);
+
+  // ✅ Stock / Availability (no quantity shown)
+  const stock = useMemo(() => {
+    if (!product) return 0;
+    const raw = (product as any).stock;
+    const n = typeof raw === "number" ? raw : typeof raw === "string" ? Number(raw) : 999;
+    return Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 999;
+  }, [product]);
+
+  const isOutOfStock = !!product && stock <= 0;
 
   // Load reviews for this product
   useEffect(() => {
@@ -160,6 +166,7 @@ export default function ProductDetailsPage() {
 
   const onAddToCart = () => {
     if (!product) return;
+    if (isOutOfStock) return;
 
     addItem({
       id: product.id,
@@ -171,9 +178,10 @@ export default function ProductDetailsPage() {
     window.setTimeout(() => setAdded(false), 900);
   };
 
-  // ✅ Buy Now always consistent: add this product then go checkout
+  // ✅ Buy Now: blocked if out of stock
   const onBuyNow = () => {
     if (!product) return;
+    if (isOutOfStock) return;
 
     addItem({
       id: product.id,
@@ -248,7 +256,6 @@ export default function ProductDetailsPage() {
 
     if (sorted.length > 0) return sorted.slice(0, 8);
 
-    // fallback: latest items (exclude current)
     const fallback = products
       .filter((p) => p.id !== product.id)
       .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0))
@@ -379,25 +386,47 @@ export default function ProductDetailsPage() {
           {product.category ? <p className="text-sm text-gray-400">{product.category}</p> : null}
 
           <h1 className="text-3xl font-bold text-white mt-2">{product.title}</h1>
-          <p className="text-pink-400 font-bold text-2xl mt-3">৳ {product.price}</p>
+
+          <div className="mt-3 flex items-center gap-3">
+            <p className="text-pink-400 font-bold text-2xl">৳ {product.price}</p>
+
+            {/* ✅ Availability badge (no quantity shown) */}
+            {isOutOfStock ? (
+              <span className="text-xs px-3 py-1 rounded-full border border-red-500/40 bg-red-500/15 text-red-300">
+                Out of Stock
+              </span>
+            ) : (
+              <span className="text-xs px-3 py-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-300">
+                Available
+              </span>
+            )}
+          </div>
 
           <div className="mt-7 flex gap-3">
             <button
               type="button"
               onClick={onAddToCart}
+              disabled={isOutOfStock}
               className={
-                added
+                isOutOfStock
+                  ? "flex-1 bg-red-600/80 text-white py-3 rounded border border-red-500/50 cursor-not-allowed"
+                  : added
                   ? "flex-1 bg-zinc-800 text-white py-3 rounded border border-zinc-700"
                   : "flex-1 bg-pink-600 text-white py-3 rounded hover:opacity-90"
               }
             >
-              {added ? "Added ✅" : "Add to Cart"}
+              {isOutOfStock ? "Out of Stock" : added ? "Added ✅" : "Add to Cart"}
             </button>
 
             <button
               type="button"
               onClick={onBuyNow}
-              className="flex-1 text-center border border-pink-500 text-white py-3 rounded hover:bg-pink-600"
+              disabled={isOutOfStock}
+              className={
+                isOutOfStock
+                  ? "flex-1 text-center border border-red-500/60 text-white py-3 rounded bg-red-500/10 cursor-not-allowed"
+                  : "flex-1 text-center border border-pink-500 text-white py-3 rounded hover:bg-pink-600"
+              }
             >
               Buy Now
             </button>
@@ -414,7 +443,9 @@ export default function ProductDetailsPage() {
               onClick={() => setTab("DETAILS")}
               className={[
                 "pb-3 text-sm font-semibold transition-colors",
-                tab === "DETAILS" ? "text-white border-b-2 border-pink-500" : "text-gray-400 hover:text-white",
+                tab === "DETAILS"
+                  ? "text-white border-b-2 border-pink-500"
+                  : "text-gray-400 hover:text-white",
               ].join(" ")}
             >
               Details
@@ -425,7 +456,9 @@ export default function ProductDetailsPage() {
               onClick={() => setTab("REVIEWS")}
               className={[
                 "pb-3 text-sm font-semibold transition-colors",
-                tab === "REVIEWS" ? "text-white border-b-2 border-pink-500" : "text-gray-400 hover:text-white",
+                tab === "REVIEWS"
+                  ? "text-white border-b-2 border-pink-500"
+                  : "text-gray-400 hover:text-white",
               ].join(" ")}
             >
               Reviews ({reviews.length})
@@ -494,9 +527,7 @@ export default function ProductDetailsPage() {
                   </>
                 ) : (
                   <div className="flex items-center justify-between gap-3">
-                    <p className="text-sm text-gray-300">
-                      Login করলে review দিতে পারবে।
-                    </p>
+                    <p className="text-sm text-gray-300">Login করলে review দিতে পারবে।</p>
                     <Link
                       href="/login"
                       className="px-4 py-2 rounded-lg border border-pink-500 text-white text-sm hover:bg-pink-600"
@@ -515,10 +546,7 @@ export default function ProductDetailsPage() {
                   </div>
                 ) : (
                   reviews.map((r) => (
-                    <div
-                      key={r.id}
-                      className="border border-zinc-800 bg-zinc-950/40 rounded-xl p-4"
-                    >
+                    <div key={r.id} className="border border-zinc-800 bg-zinc-950/40 rounded-xl p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="text-sm font-semibold text-white">{r.userName}</p>
@@ -538,13 +566,9 @@ export default function ProductDetailsPage() {
                         ) : null}
                       </div>
 
-                      <p className="text-sm text-gray-300 mt-3 whitespace-pre-wrap">
-                        {r.text}
-                      </p>
+                      <p className="text-sm text-gray-300 mt-3 whitespace-pre-wrap">{r.text}</p>
 
-                      <p className="text-xs text-gray-500 mt-3">
-                        {new Date(r.createdAt).toLocaleString()}
-                      </p>
+                      <p className="text-xs text-gray-500 mt-3">{new Date(r.createdAt).toLocaleString()}</p>
                     </div>
                   ))
                 )}

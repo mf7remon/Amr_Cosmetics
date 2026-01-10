@@ -6,6 +6,7 @@ import { Product, safeReadProducts, safeWriteProducts, slugify } from "@/app/lib
 type FormState = {
   title: string;
   price: string;
+  stock: string; // ✅ NEW
   imageUrl: string;
   description: string;
   categoryChoice: string; // dropdown value
@@ -25,6 +26,7 @@ const CATEGORY_OPTIONS = [
 const emptyForm: FormState = {
   title: "",
   price: "",
+  stock: "999", // ✅ default
   imageUrl: "",
   description: "",
   categoryChoice: "All",
@@ -37,24 +39,18 @@ export default function AdminProductsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [status, setStatus] = useState<string>("");
 
-  // ✅ Load once only
   useEffect(() => {
     const existing = safeReadProducts();
     setItems(existing);
   }, []);
 
-  // ✅ Single safe updater: updates state and localStorage together (no overwrite bug)
   const saveAndSet = (updater: (prev: Product[]) => Product[]) => {
     setItems((prev) => {
       const next = updater(prev);
-
       safeWriteProducts(next);
-
-      // same-tab refresh helper
       try {
         window.dispatchEvent(new Event("amr-products-updated"));
       } catch {}
-
       return next;
     });
   };
@@ -63,7 +59,6 @@ export default function AdminProductsPage() {
     return [...items].sort((a, b) => b.createdAt - a.createdAt);
   }, [items]);
 
-  // ✅ Admin dropdown list = default categories + categories already used in products
   const adminCategoryOptions = useMemo(() => {
     const set = new Set<string>();
     for (const c of CATEGORY_OPTIONS) set.add(c);
@@ -85,6 +80,12 @@ export default function AdminProductsPage() {
     const title = form.title.trim();
     const priceNum = Number(form.price);
 
+    // ✅ stock parse
+    const stockRaw = form.stock.trim();
+    const stockNum =
+      stockRaw === "" ? 999 : Number(stockRaw);
+    const stockFinal = Number.isFinite(stockNum) ? Math.max(0, Math.floor(stockNum)) : NaN;
+
     if (!title) {
       setStatus("Title required");
       return;
@@ -92,6 +93,11 @@ export default function AdminProductsPage() {
 
     if (!Number.isFinite(priceNum) || priceNum <= 0) {
       setStatus("Valid price required");
+      return;
+    }
+
+    if (!Number.isFinite(stockFinal)) {
+      setStatus("Valid stock required (0 or more)");
       return;
     }
 
@@ -118,6 +124,7 @@ export default function AdminProductsPage() {
         title,
         slug,
         price: priceNum,
+        stock: stockFinal, // ✅ NEW
         imageUrl: form.imageUrl.trim() || undefined,
         description: form.description.trim() || undefined,
         category: categoryValue,
@@ -138,6 +145,7 @@ export default function AdminProductsPage() {
               title,
               slug,
               price: priceNum,
+              stock: stockFinal, // ✅ NEW
               imageUrl: form.imageUrl.trim() || undefined,
               description: form.description.trim() || undefined,
               category: categoryValue,
@@ -159,6 +167,7 @@ export default function AdminProductsPage() {
     setForm({
       title: p.title,
       price: String(p.price),
+      stock: String((p as any).stock ?? 999), // ✅ NEW
       imageUrl: p.imageUrl ?? "",
       description: p.description ?? "",
       categoryChoice: existingCat ? (existsInOptions ? existingCat : "Custom") : "All",
@@ -215,6 +224,15 @@ export default function AdminProductsPage() {
             className="w-full mb-4 px-3 py-2 rounded bg-zinc-800 text-white outline-none"
             value={form.price}
             onChange={(e) => setForm((s) => ({ ...s, price: e.target.value }))}
+            inputMode="numeric"
+          />
+
+          {/* ✅ STOCK */}
+          <label className="block text-sm text-gray-300 mb-1">Stock (0 = out of stock)</label>
+          <input
+            className="w-full mb-4 px-3 py-2 rounded bg-zinc-800 text-white outline-none"
+            value={form.stock}
+            onChange={(e) => setForm((s) => ({ ...s, stock: e.target.value }))}
             inputMode="numeric"
           />
 
@@ -300,44 +318,54 @@ export default function AdminProductsPage() {
             <p className="text-gray-400">No products yet.</p>
           ) : (
             <div className="space-y-4">
-              {sorted.map((p) => (
-                <div key={p.id} className="border border-zinc-800 rounded p-4 bg-zinc-950">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <h3 className="font-semibold text-lg">{p.title}</h3>
-                      <p className="text-sm text-gray-400">Slug: {p.slug}</p>
+              {sorted.map((p) => {
+                const s = (p as any).stock ?? 999;
+                const isZero = Number(s) <= 0;
 
-                      {p.category ? (
-                        <p className="text-sm text-gray-400 mt-1">Category: {p.category}</p>
-                      ) : (
-                        <p className="text-sm text-gray-500 mt-1">Category: (None)</p>
-                      )}
+                return (
+                  <div key={p.id} className="border border-zinc-800 rounded p-4 bg-zinc-950">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <h3 className="font-semibold text-lg">{p.title}</h3>
+                        <p className="text-sm text-gray-400">Slug: {p.slug}</p>
 
-                      <p className="text-pink-400 mt-2">৳ {p.price}</p>
+                        {p.category ? (
+                          <p className="text-sm text-gray-400 mt-1">Category: {p.category}</p>
+                        ) : (
+                          <p className="text-sm text-gray-500 mt-1">Category: (None)</p>
+                        )}
+
+                        <p className="text-pink-400 mt-2">৳ {p.price}</p>
+
+                        {/* ✅ Stock shown here (admin only) */}
+                        <p className={`text-sm mt-2 ${isZero ? "text-red-300" : "text-gray-300"}`}>
+                          Stock: {s} {isZero ? "(Out of stock)" : ""}
+                        </p>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => onEdit(p)}
+                          className="border border-zinc-700 px-4 py-2 rounded hover:border-pink-500"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onDelete(p.id)}
+                          className="border border-zinc-700 px-4 py-2 rounded hover:border-pink-500"
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </div>
 
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => onEdit(p)}
-                        className="border border-zinc-700 px-4 py-2 rounded hover:border-pink-500"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onDelete(p.id)}
-                        className="border border-zinc-700 px-4 py-2 rounded hover:border-pink-500"
-                      >
-                        Delete
-                      </button>
-                    </div>
+                    {p.description ? <p className="text-gray-300 mt-3">{p.description}</p> : null}
+                    {p.imageUrl ? <p className="text-gray-400 mt-3 break-all">Image: {p.imageUrl}</p> : null}
                   </div>
-
-                  {p.description ? <p className="text-gray-300 mt-3">{p.description}</p> : null}
-                  {p.imageUrl ? <p className="text-gray-400 mt-3 break-all">Image: {p.imageUrl}</p> : null}
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

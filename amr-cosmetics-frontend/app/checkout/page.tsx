@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import * as OrdersStore from "@/app/lib/ordersStore";
+import { safeReadProducts, safeWriteProducts } from "@/app/lib/productsStore";
 
 type ShippingZone = "INSIDE_DHAKA" | "OUTSIDE_DHAKA";
 
@@ -52,6 +53,39 @@ export default function CheckoutPage() {
       return;
     }
 
+    // ✅ STOCK CHECK (before placing order)
+    const latestProducts = safeReadProducts();
+    const byId = new Map(latestProducts.map((p) => [p.id, p]));
+
+    const bad = items.find((it) => {
+      const p = byId.get(it.id);
+      if (!p) return true;
+
+      const raw = (p as any).stock;
+      const stockNum =
+        typeof raw === "number" ? raw : typeof raw === "string" ? Number(raw) : 999;
+      const stock = Number.isFinite(stockNum) ? Math.max(0, Math.floor(stockNum)) : 999;
+
+      return stock < it.qty;
+    });
+
+    if (bad) {
+      const p = byId.get(bad.id);
+      const name = p?.title ?? bad.name;
+
+      const raw = (p as any)?.stock;
+      const stockNum =
+        typeof raw === "number" ? raw : typeof raw === "string" ? Number(raw) : 0;
+      const stock = Number.isFinite(stockNum) ? Math.max(0, Math.floor(stockNum)) : 0;
+
+      alert(
+        stock <= 0
+          ? `Out of stock: ${name}\nPlease remove it from cart.`
+          : `Not enough stock: ${name}\nAvailable: ${stock}, You selected: ${bad.qty}`
+      );
+      return;
+    }
+
     const now = Date.now();
     const orderId = OrdersStore.makeOrderId();
 
@@ -88,6 +122,23 @@ export default function CheckoutPage() {
 
     // ✅ This is the missing part (admin panel reads from this storage)
     OrdersStore.addOrderToStorage(order);
+
+    // ✅ DECREASE STOCK after successful order
+    const cartQtyById = new Map(items.map((it) => [it.id, it.qty]));
+
+    const nextProducts = latestProducts.map((p) => {
+      const qty = cartQtyById.get(p.id) ?? 0;
+      if (!qty) return p;
+
+      const raw = (p as any).stock;
+      const stockNum =
+        typeof raw === "number" ? raw : typeof raw === "string" ? Number(raw) : 999;
+      const stock = Number.isFinite(stockNum) ? Math.max(0, Math.floor(stockNum)) : 999;
+
+      return { ...p, stock: Math.max(0, stock - qty) } as any;
+    });
+
+    safeWriteProducts(nextProducts);
 
     alert(`Order placed successfully.\nOrder ID: ${orderId}`);
     clearCart();

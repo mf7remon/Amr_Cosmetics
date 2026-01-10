@@ -3,14 +3,17 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/app/context/AuthContext";
 
+export type CouponKind = "PERCENT" | "FIXED";
+
 export type Coupon = {
   id: string;
   title: string;
   code: string;
-  discount: number; // % or fixed
+  kind: CouponKind;
+  value: number;
   expiresAt: number;
   used: boolean;
-  createdAt?: number;
+  createdAt: number;
 };
 
 type CouponContextValue = {
@@ -30,6 +33,15 @@ function makeCouponsKey(email?: string | null) {
   return clean ? `${COUPON_PREFIX}:${clean}` : `${COUPON_PREFIX}:guest`;
 }
 
+function safeJsonParse<T>(raw: string | null, fallback: T): T {
+  try {
+    if (!raw) return fallback;
+    return JSON.parse(raw) as T;
+  } catch {
+    return fallback;
+  }
+}
+
 function safeReadCoupons(key: string): Coupon[] {
   if (typeof window === "undefined") return [];
   try {
@@ -39,8 +51,7 @@ function safeReadCoupons(key: string): Coupon[] {
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
 
-    // light cleanup
-    return (parsed as Coupon[])
+    return (parsed as unknown[])
       .map((c) => {
         if (!c || typeof c !== "object") return null;
         const obj = c as Record<string, unknown>;
@@ -48,41 +59,36 @@ function safeReadCoupons(key: string): Coupon[] {
         const id = typeof obj.id === "string" ? obj.id : "";
         const title = typeof obj.title === "string" ? obj.title : "";
         const code = typeof obj.code === "string" ? obj.code : "";
-        const discount =
-          typeof obj.discount === "number"
-            ? obj.discount
-            : typeof obj.discount === "string"
-            ? Number(obj.discount)
-            : NaN;
-        const expiresAt =
-          typeof obj.expiresAt === "number"
-            ? obj.expiresAt
-            : typeof obj.expiresAt === "string"
-            ? Number(obj.expiresAt)
-            : NaN;
-        const used =
-          typeof obj.used === "boolean"
-            ? obj.used
-            : typeof obj.used === "string"
-            ? obj.used === "true"
-            : false;
-        const createdAt =
-          typeof obj.createdAt === "number"
-            ? obj.createdAt
-            : typeof obj.createdAt === "string"
-            ? Number(obj.createdAt)
-            : undefined;
 
-        if (!id || !title || !code || Number.isNaN(discount) || Number.isNaN(expiresAt)) return null;
+        const kind = obj.kind === "FIXED" || obj.kind === "PERCENT" ? (obj.kind as CouponKind) : "PERCENT";
+
+        const valueRaw = obj.value;
+        const valueNum = typeof valueRaw === "number" ? valueRaw : typeof valueRaw === "string" ? Number(valueRaw) : NaN;
+
+        const expiresRaw = obj.expiresAt;
+        const expiresAt = typeof expiresRaw === "number" ? expiresRaw : typeof expiresRaw === "string" ? Number(expiresRaw) : NaN;
+
+        const usedRaw = obj.used;
+        const used = typeof usedRaw === "boolean" ? usedRaw : typeof usedRaw === "string" ? usedRaw === "true" : false;
+
+        const createdRaw = obj.createdAt;
+        const createdAt = typeof createdRaw === "number" ? createdRaw : typeof createdRaw === "string" ? Number(createdRaw) : NaN;
+
+        if (!id || !title || !code) return null;
+        if (!Number.isFinite(valueNum) || valueNum <= 0) return null;
+        if (!Number.isFinite(expiresAt)) return null;
+
+        const safeCreatedAt = Number.isFinite(createdAt) ? createdAt : Date.now();
 
         return {
           id,
           title,
-          code,
-          discount,
+          code: code.trim().toUpperCase(),
+          kind,
+          value: Math.max(1, Math.floor(valueNum)),
           expiresAt,
           used,
-          createdAt,
+          createdAt: safeCreatedAt,
         } satisfies Coupon;
       })
       .filter((x): x is Coupon => x !== null);
@@ -108,7 +114,6 @@ export function CouponProvider({ children }: { children: React.ReactNode }) {
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [hydrated, setHydrated] = useState(false);
 
-  // ✅ load coupons when user changes (or guest)
   useEffect(() => {
     setHydrated(false);
     const next = safeReadCoupons(storageKey);
@@ -116,7 +121,6 @@ export function CouponProvider({ children }: { children: React.ReactNode }) {
     setHydrated(true);
   }, [storageKey]);
 
-  // ✅ persist coupons (after hydrate only)
   useEffect(() => {
     if (!hydrated) return;
     safeWriteCoupons(storageKey, coupons);
@@ -129,10 +133,7 @@ export function CouponProvider({ children }: { children: React.ReactNode }) {
       // ✅ keep only latest coupon (your requirement)
       addCoupon: (coupon) => setCoupons([coupon]),
 
-      markUsed: (id) =>
-        setCoupons((prev) =>
-          prev.map((c) => (c.id === id ? { ...c, used: true } : c))
-        ),
+      markUsed: (id) => setCoupons((prev) => prev.map((c) => (c.id === id ? { ...c, used: true } : c))),
 
       clearCoupons: () => setCoupons([]),
     }),

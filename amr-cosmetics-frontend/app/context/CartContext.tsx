@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/app/context/AuthContext";
+import { getActiveAdminCouponByCode } from "@/app/lib/couponsStore";
 
 export type CartItem = {
   id: string;
@@ -12,8 +13,8 @@ export type CartItem = {
 
 type Coupon = {
   code: string;
-  type: "PERCENT";
-  value: number; // e.g. 10 means 10%
+  type: "PERCENT" | "FIXED";
+  value: number;
 };
 
 type StoredCart = {
@@ -41,21 +42,21 @@ type CartContextValue = {
 
 const CartContext = createContext<CartContextValue | null>(null);
 
-/**
- * Demo coupon list (later: from Spin or backend)
- */
-const COUPONS: Coupon[] = [
-  { code: "AMR5", type: "PERCENT", value: 5 },
-  { code: "AMR10", type: "PERCENT", value: 10 },
-  { code: "GLOW15", type: "PERCENT", value: 15 },
-  { code: "BEAUTY20", type: "PERCENT", value: 20 },
-];
-
 const CART_PREFIX = "amr_cart_v1";
 
 function makeCartKey(email?: string | null) {
   const clean = (email ?? "").trim().toLowerCase();
   return clean ? `${CART_PREFIX}:${clean}` : `${CART_PREFIX}:guest`;
+}
+
+function toCartCoupon(admin: { code: string; type: "PERCENT" | "FIXED"; value: number }): Coupon {
+  const v = Number(admin.value);
+  const safeV = Number.isFinite(v) ? Math.max(1, Math.floor(v)) : 0;
+  return {
+    code: String(admin.code ?? "").trim().toUpperCase(),
+    type: admin.type === "FIXED" ? "FIXED" : "PERCENT",
+    value: safeV,
+  };
 }
 
 function safeReadCart(key: string): StoredCart {
@@ -88,12 +89,12 @@ function safeReadCart(key: string): StoredCart {
       })
       .filter((v): v is CartItem => v !== null);
 
-    // validate coupon against list
+    // ✅ validate coupon against ACTIVE admin coupons (not expired)
     let cleanCoupon: Coupon | null = null;
     if (appliedCoupon && typeof (appliedCoupon as any).code === "string") {
       const code = String((appliedCoupon as any).code).trim().toUpperCase();
-      const found = COUPONS.find((c) => c.code === code);
-      if (found) cleanCoupon = found;
+      const found = getActiveAdminCouponByCode(code);
+      if (found) cleanCoupon = toCartCoupon(found);
     }
 
     return { items: cleanItems, appliedCoupon: cleanCoupon };
@@ -173,19 +174,29 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     if (!clean) return { ok: false, message: "Please enter a coupon code." };
     if (subtotal <= 0) return { ok: false, message: "Cart is empty." };
 
-    const found = COUPONS.find((c) => c.code === clean);
-    if (!found) return { ok: false, message: "Invalid coupon code." };
+    const found = getActiveAdminCouponByCode(clean);
+    if (!found) return { ok: false, message: "Invalid / inactive / expired coupon." };
 
-    setAppliedCoupon(found);
-    return { ok: true, message: `Coupon applied: ${found.code} (${found.value}%)` };
+    const next = toCartCoupon(found);
+    setAppliedCoupon(next);
+
+    const show = next.type === "PERCENT" ? `${next.value}%` : `৳ ${next.value}`;
+    return { ok: true, message: `Coupon applied: ${next.code} (${show})` };
   };
 
   const removeCoupon = () => setAppliedCoupon(null);
 
   const discountAmount = useMemo(() => {
     if (!appliedCoupon) return 0;
-    const discount = Math.round((subtotal * appliedCoupon.value) / 100);
-    return Math.max(0, discount);
+
+    if (appliedCoupon.type === "PERCENT") {
+      const discount = Math.round((subtotal * appliedCoupon.value) / 100);
+      return Math.max(0, discount);
+    }
+
+    // FIXED
+    const fixed = Math.max(0, Math.floor(appliedCoupon.value));
+    return Math.min(subtotal, fixed);
   }, [appliedCoupon, subtotal]);
 
   const total = useMemo(() => Math.max(0, subtotal - discountAmount), [subtotal, discountAmount]);

@@ -8,6 +8,12 @@ import { useAuth } from "../context/AuthContext";
 import { safeReadProducts } from "@/app/lib/productsStore";
 import * as OrdersStore from "@/app/lib/ordersStore";
 
+import {
+  ADMIN_COUPONS_KEY,
+  ADMIN_COUPONS_UPDATED_EVENT,
+  safeReadAdminCoupons,
+} from "@/app/lib/couponsStore";
+
 type AnyOrder = Record<string, any>;
 
 function safeJsonParse<T>(raw: string | null, fallback: T): T {
@@ -87,7 +93,6 @@ function readAllOrdersRobust(): AnyOrder[] {
     } catch {}
   }
 
-  // fallback scan localStorage keys for per-user orders like amr_orders_v1:email
   let collected: AnyOrder[] = [];
   try {
     for (let i = 0; i < window.localStorage.length; i++) {
@@ -100,7 +105,6 @@ function readAllOrdersRobust(): AnyOrder[] {
     }
   } catch {}
 
-  // fallback global keys too
   const globals = ["amr_orders_v1", "amr_orders", "amr_all_orders_v1", "amr_all_orders"];
   for (const k of globals) {
     const arr = readArrayFromKey(k);
@@ -116,6 +120,9 @@ export default function AdminPage() {
 
   const [totalProducts, setTotalProducts] = useState<number>(0);
   const [ordersToday, setOrdersToday] = useState<number>(0);
+
+  // ✅ NEW
+  const [activeCouponsCount, setActiveCouponsCount] = useState<number>(0);
 
   useEffect(() => {
     if (!isLoggedIn) router.push("/login");
@@ -138,6 +145,16 @@ export default function AdminPage() {
       } catch {
         setOrdersToday(0);
       }
+
+      // ✅ NEW: active coupons
+      try {
+        const now = Date.now();
+        const list = safeReadAdminCoupons();
+        const count = list.filter((c) => !!c.active && Number(c.expiresAt) > now).length;
+        setActiveCouponsCount(count);
+      } catch {
+        setActiveCouponsCount(0);
+      }
     };
 
     reloadStats();
@@ -147,7 +164,7 @@ export default function AdminPage() {
     const onStorage = (e: StorageEvent) => {
       if (!e.key) return;
       const k = e.key.toLowerCase();
-      if (k.startsWith("amr_orders") || k === "amr_products") reloadStats();
+      if (k.startsWith("amr_orders") || k === "amr_products" || k === ADMIN_COUPONS_KEY) reloadStats();
     };
 
     window.addEventListener("storage", onStorage);
@@ -155,11 +172,15 @@ export default function AdminPage() {
     window.addEventListener("amr_orders_updated", onCustom as any);
     window.addEventListener("amr-products-updated", onCustom as any);
 
+    // ✅ NEW: same tab coupons update
+    window.addEventListener(ADMIN_COUPONS_UPDATED_EVENT, onCustom as any);
+
     return () => {
       window.removeEventListener("storage", onStorage);
       window.removeEventListener("amr-orders-updated", onCustom as any);
       window.removeEventListener("amr_orders_updated", onCustom as any);
       window.removeEventListener("amr-products-updated", onCustom as any);
+      window.removeEventListener(ADMIN_COUPONS_UPDATED_EVENT, onCustom as any);
     };
   }, []);
 
@@ -185,10 +206,7 @@ export default function AdminPage() {
           </div>
 
           <div className="flex gap-3">
-            <Link
-              href="/"
-              className="px-4 py-2 rounded bg-zinc-900 hover:bg-zinc-800 border border-zinc-800"
-            >
+            <Link href="/" className="px-4 py-2 rounded bg-zinc-900 hover:bg-zinc-800 border border-zinc-800">
               View Site
             </Link>
             <Link
@@ -213,45 +231,32 @@ export default function AdminPage() {
 
           <div className="bg-zinc-900 border border-zinc-800 rounded p-5">
             <p className="text-gray-400 text-sm">Active Coupons</p>
-            <p className="text-2xl font-bold mt-2">4</p>
+            <p className="text-2xl font-bold mt-2">{activeCouponsCount}</p>
           </div>
         </div>
 
         <h2 className="text-xl font-semibold mt-10 mb-4">Quick Actions</h2>
 
-        {/* ✅ এখানে Blogs add করা হলো */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Link
-            href="/admin/products"
-            className="bg-zinc-900 border border-zinc-800 rounded p-6 hover:bg-zinc-800 transition"
-          >
+          <Link href="/admin/products" className="bg-zinc-900 border border-zinc-800 rounded p-6 hover:bg-zinc-800 transition">
             <h3 className="text-xl font-bold">Manage Products</h3>
             <p className="text-gray-300 text-sm mt-2">Add / Edit / Remove products</p>
             <p className="text-pink-400 text-sm mt-4">Open →</p>
           </Link>
 
-          <Link
-            href="/admin/orders"
-            className="bg-zinc-900 border border-zinc-800 rounded p-6 hover:bg-zinc-800 transition"
-          >
+          <Link href="/admin/orders" className="bg-zinc-900 border border-zinc-800 rounded p-6 hover:bg-zinc-800 transition">
             <h3 className="text-xl font-bold">Orders</h3>
             <p className="text-gray-300 text-sm mt-2">View customer orders & status</p>
             <p className="text-pink-400 text-sm mt-4">Open →</p>
           </Link>
 
-          <Link
-            href="/admin/coupons"
-            className="bg-zinc-900 border border-zinc-800 rounded p-6 hover:bg-zinc-800 transition"
-          >
+          <Link href="/admin/coupons" className="bg-zinc-900 border border-zinc-800 rounded p-6 hover:bg-zinc-800 transition">
             <h3 className="text-xl font-bold">Coupons</h3>
             <p className="text-gray-300 text-sm mt-2">Manage discount coupons</p>
             <p className="text-pink-400 text-sm mt-4">Open →</p>
           </Link>
 
-          <Link
-            href="/admin/blogs"
-            className="bg-zinc-900 border border-zinc-800 rounded p-6 hover:bg-zinc-800 transition"
-          >
+          <Link href="/admin/blogs" className="bg-zinc-900 border border-zinc-800 rounded p-6 hover:bg-zinc-800 transition">
             <h3 className="text-xl font-bold">Blogs</h3>
             <p className="text-gray-300 text-sm mt-2">Add / Edit / Remove blogs</p>
             <p className="text-pink-400 text-sm mt-4">Open →</p>
