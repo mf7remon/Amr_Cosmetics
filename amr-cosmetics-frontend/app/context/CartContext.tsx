@@ -43,10 +43,25 @@ type CartContextValue = {
 const CartContext = createContext<CartContextValue | null>(null);
 
 const CART_PREFIX = "amr_cart_v1";
+const USER_COUPON_PREFIX = "amr_coupons_v1";
 
 function makeCartKey(email?: string | null) {
   const clean = (email ?? "").trim().toLowerCase();
   return clean ? `${CART_PREFIX}:${clean}` : `${CART_PREFIX}:guest`;
+}
+
+function makeUserCouponsKey(email?: string | null) {
+  const clean = (email ?? "").trim().toLowerCase();
+  return clean ? `${USER_COUPON_PREFIX}:${clean}` : `${USER_COUPON_PREFIX}:guest`;
+}
+
+function safeJsonParse<T>(raw: string | null, fallback: T): T {
+  try {
+    if (!raw) return fallback;
+    return JSON.parse(raw) as T;
+  } catch {
+    return fallback;
+  }
 }
 
 function toCartCoupon(admin: { code: string; type: "PERCENT" | "FIXED"; value: number }): Coupon {
@@ -59,7 +74,36 @@ function toCartCoupon(admin: { code: string; type: "PERCENT" | "FIXED"; value: n
   };
 }
 
-function safeReadCart(key: string): StoredCart {
+// ✅ Read latest "won coupon" for this user from localStorage (saved by CouponContext)
+function readUserWonCoupon(email?: string | null, now = Date.now()): { code: string } | null {
+  if (typeof window === "undefined") return null;
+
+  const key = makeUserCouponsKey(email);
+  const raw = window.localStorage.getItem(key);
+  const list = safeJsonParse<unknown>(raw, []);
+  if (!Array.isArray(list) || list.length === 0) return null;
+
+  // CouponContext keeps only latest coupon -> usually list[0]
+  const first = list[0];
+  if (!first || typeof first !== "object") return null;
+
+  const o = first as Record<string, unknown>;
+  const code = typeof o.code === "string" ? o.code.trim().toUpperCase() : "";
+  const expiresAt = typeof o.expiresAt === "number" ? o.expiresAt : Number(o.expiresAt);
+
+  const value = typeof o.value === "number" ? o.value : Number(o.value);
+  if (!code) return null;
+  if (!Number.isFinite(expiresAt) || expiresAt <= now) return null;
+  if (!Number.isFinite(value) || value <= 0) return null;
+
+  // used field (even though you allow unlimited use, if used=true then ignore)
+  const used = typeof o.used === "boolean" ? o.used : String(o.used) === "true";
+  if (used) return null;
+
+  return { code };
+}
+
+function safeReadCart(key: string, email?: string | null): StoredCart {
   if (typeof window === "undefined") return { items: [], appliedCoupon: null };
 
   try {
@@ -70,7 +114,6 @@ function safeReadCart(key: string): StoredCart {
     const items = Array.isArray(parsed?.items) ? (parsed?.items as CartItem[]) : [];
     const appliedCoupon = parsed?.appliedCoupon ?? null;
 
-    // basic cleanup
     const cleanItems = items
       .map((x) => {
         const id = typeof x?.id === "string" ? x.id : "";
@@ -89,12 +132,20 @@ function safeReadCart(key: string): StoredCart {
       })
       .filter((v): v is CartItem => v !== null);
 
-    // ✅ validate coupon against ACTIVE admin coupons (not expired)
+    // ✅ validate coupon:
+    // 1) must be ACTIVE admin coupon
+    // 2) must match user's WON coupon code
     let cleanCoupon: Coupon | null = null;
+
     if (appliedCoupon && typeof (appliedCoupon as any).code === "string") {
       const code = String((appliedCoupon as any).code).trim().toUpperCase();
-      const found = getActiveAdminCouponByCode(code);
-      if (found) cleanCoupon = toCartCoupon(found);
+
+      const adminFound = getActiveAdminCouponByCode(code);
+      const userWon = readUserWonCoupon(email);
+
+      if (adminFound && userWon && userWon.code === code) {
+        cleanCoupon = toCartCoupon(adminFound);
+      }
     }
 
     return { items: cleanItems, appliedCoupon: cleanCoupon };
@@ -105,34 +156,30 @@ function safeReadCart(key: string): StoredCart {
 
 function safeWriteCart(key: string, data: StoredCart) {
   if (typeof window === "undefined") return;
-
   try {
     window.localStorage.setItem(key, JSON.stringify(data));
-  } catch {
-    // ignore
-  }
+  } catch {}
 }
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
+  const { user, isLoggedIn } = useAuth();
 
-  const storageKey = useMemo(() => makeCartKey(user?.email ?? null), [user?.email]);
+  const userEmail = (user?.email ?? "").trim().toLowerCase() || null;
+  const storageKey = useMemo(() => makeCartKey(userEmail), [userEmail]);
 
   const [items, setItems] = useState<CartItem[]>([]);
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
 
-  // ✅ hydrate on key change (user switch) and block writing until hydrated
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     setHydrated(false);
-    const stored = safeReadCart(storageKey);
+    const stored = safeReadCart(storageKey, userEmail);
     setItems(stored.items);
     setAppliedCoupon(stored.appliedCoupon);
     setHydrated(true);
-  }, [storageKey]);
+  }, [storageKey, userEmail]);
 
-  // ✅ persist to localStorage (after hydrated only)
   useEffect(() => {
     if (!hydrated) return;
     safeWriteCart(storageKey, { items, appliedCoupon });
@@ -141,9 +188,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const addItem: CartContextValue["addItem"] = (item) => {
     setItems((prev) => {
       const found = prev.find((p) => p.id === item.id);
-      if (found) {
-        return prev.map((p) => (p.id === item.id ? { ...p, qty: p.qty + 1 } : p));
-      }
+      if (found) return prev.map((p) => (p.id === item.id ? { ...p, qty: p.qty + 1 } : p));
       return [...prev, { ...item, qty: 1 }];
     });
   };
@@ -174,10 +219,23 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     if (!clean) return { ok: false, message: "Please enter a coupon code." };
     if (subtotal <= 0) return { ok: false, message: "Cart is empty." };
 
-    const found = getActiveAdminCouponByCode(clean);
-    if (!found) return { ok: false, message: "Invalid / inactive / expired coupon." };
+    if (!isLoggedIn || !userEmail) {
+      return { ok: false, message: "Login required to use Spin coupon." };
+    }
 
-    const next = toCartCoupon(found);
+    const userWon = readUserWonCoupon(userEmail);
+    if (!userWon) {
+      return { ok: false, message: "You don't have any active Spin coupon. Go to My Coupons / Spin to Win." };
+    }
+
+    if (userWon.code !== clean) {
+      return { ok: false, message: `Only your won coupon works: ${userWon.code}` };
+    }
+
+    const adminFound = getActiveAdminCouponByCode(clean);
+    if (!adminFound) return { ok: false, message: "Your coupon is inactive/expired now." };
+
+    const next = toCartCoupon(adminFound);
     setAppliedCoupon(next);
 
     const show = next.type === "PERCENT" ? `${next.value}%` : `৳ ${next.value}`;
@@ -194,7 +252,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       return Math.max(0, discount);
     }
 
-    // FIXED
     const fixed = Math.max(0, Math.floor(appliedCoupon.value));
     return Math.min(subtotal, fixed);
   }, [appliedCoupon, subtotal]);
