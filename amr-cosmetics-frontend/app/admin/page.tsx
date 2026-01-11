@@ -164,7 +164,12 @@ export default function AdminPage() {
     const onStorage = (e: StorageEvent) => {
       if (!e.key) return;
       const k = e.key.toLowerCase();
-      if (k.startsWith("amr_orders") || k === "amr_products" || k === ADMIN_COUPONS_KEY) reloadStats();
+      if (
+        k.startsWith("amr_orders") ||
+        k === "amr_products" ||
+        k === ADMIN_COUPONS_KEY
+      )
+        reloadStats();
     };
 
     window.addEventListener("storage", onStorage);
@@ -237,6 +242,7 @@ export default function AdminPage() {
 
         <h2 className="text-xl font-semibold mt-10 mb-4">Quick Actions</h2>
 
+        {/* ✅ Added Banner Management here (no other changes) */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Link href="/admin/products" className="bg-zinc-900 border border-zinc-800 rounded p-6 hover:bg-zinc-800 transition">
             <h3 className="text-xl font-bold">Manage Products</h3>
@@ -261,6 +267,12 @@ export default function AdminPage() {
             <p className="text-gray-300 text-sm mt-2">Add / Edit / Remove blogs</p>
             <p className="text-pink-400 text-sm mt-4">Open →</p>
           </Link>
+
+          <Link href="/admin/banners" className="bg-zinc-900 border border-zinc-800 rounded p-6 hover:bg-zinc-800 transition">
+            <h3 className="text-xl font-bold">Banners</h3>
+            <p className="text-gray-300 text-sm mt-2">Manage homepage banners</p>
+            <p className="text-pink-400 text-sm mt-4">Open →</p>
+          </Link>
         </div>
 
         <div className="mt-10 bg-zinc-900 border border-zinc-800 rounded p-5">
@@ -270,6 +282,7 @@ export default function AdminPage() {
             <li>/admin/orders</li>
             <li>/admin/coupons</li>
             <li>/admin/blogs</li>
+            <li>/admin/banners</li>
           </ul>
         </div>
       </div>
