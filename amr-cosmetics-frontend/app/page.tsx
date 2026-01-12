@@ -415,7 +415,7 @@ export default function Home() {
             <button
               type="button"
               onClick={() => setDrawerOpen(true)}
-              className="h-11 w-11 rounded-2xl bg-zinc-950 border border-zinc-800 hover:border-pink-500 flex items-center justify-center shrink-0 transition"
+              className="hidden md:flex h-11 w-11 rounded-2xl bg-zinc-950 border border-zinc-800 hover:border-pink-500 items-center justify-center shrink-0 transition"
               aria-label="Open categories"
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none">

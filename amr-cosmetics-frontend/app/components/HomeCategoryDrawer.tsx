@@ -2,12 +2,26 @@
 
 import Link from "next/link";
 
+type NavItem = {
+  href: string;
+  label: string;
+};
+
 type Props = {
   open: boolean;
+
+  // Categories (optional)
   categories: string[];
   active: string;
-  onClose: () => void;
   onSelect: (category: string) => void;
+
+  onClose: () => void;
+
+  // ✅ NEW (optional) - for mobile navbar drawer
+  navItems?: NavItem[];
+  activePathname?: string;
+  onLogout?: () => void;
+  showCategories?: boolean; // default true
 };
 
 function SparkIcon() {
@@ -35,7 +49,17 @@ export default function HomeCategoryDrawer({
   active,
   onClose,
   onSelect,
+  navItems,
+  activePathname,
+  onLogout,
+  showCategories = true,
 }: Props) {
+  const isActiveLink = (href: string) => {
+    if (!activePathname) return false;
+    if (href === "/") return activePathname === "/";
+    return activePathname.startsWith(href);
+  };
+
   return (
     <>
       {/* Overlay */}
@@ -81,7 +105,48 @@ export default function HomeCategoryDrawer({
           </button>
         </div>
 
-        {/* Spin (top item) */}
+        {/* ✅ NEW: Pages section (Navbar menu items) */}
+        {navItems && navItems.length > 0 ? (
+          <div className="p-5 border-b border-zinc-800">
+            <p className="text-xs text-gray-500 mb-3">Pages</p>
+
+            <div className="space-y-2">
+              {navItems.map((it) => {
+                const activePage = isActiveLink(it.href);
+                return (
+                  <Link
+                    key={it.href}
+                    href={it.href}
+                    onClick={onClose}
+                    className={
+                      activePage
+                        ? "block w-full px-4 py-2 rounded bg-zinc-900 border border-pink-500 text-white"
+                        : "block w-full px-4 py-2 rounded bg-zinc-900 border border-zinc-800 text-gray-200 hover:border-pink-500"
+                    }
+                  >
+                    {it.label}
+                  </Link>
+                );
+              })}
+            </div>
+
+            {/* Logout (only when logged in) */}
+            {typeof onLogout === "function" ? (
+              <button
+                type="button"
+                onClick={() => {
+                  onLogout();
+                  onClose();
+                }}
+                className="mt-4 w-full rounded bg-zinc-900 px-4 py-2 text-sm font-medium text-white border border-zinc-800 hover:border-pink-500"
+              >
+                Logout
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+
+        {/* Spin (kept as-is) */}
         <div className="p-5 border-b border-zinc-800">
           <Link
             href="/account/spin"
@@ -99,34 +164,36 @@ export default function HomeCategoryDrawer({
           </p>
         </div>
 
-        {/* Categories */}
-        <div className="p-5">
-          <p className="text-xs text-gray-500 mb-3">Categories</p>
+        {/* Categories (optional) */}
+        {showCategories && categories && categories.length > 0 ? (
+          <div className="p-5">
+            <p className="text-xs text-gray-500 mb-3">Categories</p>
 
-          <div className="space-y-2">
-            {categories.map((c) => {
-              const isActive = c === active;
+            <div className="space-y-2">
+              {categories.map((c) => {
+                const isActive = c === active;
 
-              return (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => {
-                    onSelect(c);
-                    onClose();
-                  }}
-                  className={
-                    isActive
-                      ? "w-full text-left px-4 py-2 rounded bg-zinc-900 border border-pink-500 text-white"
-                      : "w-full text-left px-4 py-2 rounded bg-zinc-900 border border-zinc-800 text-gray-200 hover:border-pink-500"
-                  }
-                >
-                  {c}
-                </button>
-              );
-            })}
+                return (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => {
+                      onSelect(c);
+                      onClose();
+                    }}
+                    className={
+                      isActive
+                        ? "w-full text-left px-4 py-2 rounded bg-zinc-900 border border-pink-500 text-white"
+                        : "w-full text-left px-4 py-2 rounded bg-zinc-900 border border-zinc-800 text-gray-200 hover:border-pink-500"
+                    }
+                  >
+                    {c}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        ) : null}
       </aside>
     </>
   );
