@@ -1,6 +1,14 @@
+// app/context/AuthContext.tsx
 "use client";
 
-import React, { createContext, useContext, useMemo, useState } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import {
+  ADMIN_USERS_KEY as ADMIN_USERS_KEY_V1,
+  ADMIN_USERS_UPDATED_EVENT,
+  getAdminUserByEmail,
+  getActiveAdminUserByEmail,
+  isEmailReservedForAdmin,
+} from "@/app/lib/adminUsersStore";
 
 type Role = "USER" | "ADMIN";
 
@@ -126,7 +134,6 @@ function migrateLegacyIfNeeded() {
       name: legacyName,
       email: legacyEmail,
       role: "USER",
-      // legacy had no password, keep it undefined
       password: typeof legacy.password === "string" ? legacy.password : undefined,
       createdAt: Date.now(),
     });
@@ -139,11 +146,10 @@ function migrateLegacyIfNeeded() {
     writeSession(session);
   }
 
-  // remove legacy so it wont keep overwriting
   window.localStorage.removeItem(LEGACY_KEY);
 }
 
-function getAdminUser(): AuthUser {
+function getDefaultAdminUser(): AuthUser {
   return { name: "Admin", email: "admin@amr.com", role: "ADMIN" };
 }
 
@@ -174,6 +180,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return readSession();
   });
 
+  const logout = () => {
+    setUser(null);
+    writeSession(null);
+  };
+
+  // ✅ NEW: re-validate current ADMIN session when admin users change (deactivate/delete => instant logout)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const validateAdminSession = () => {
+      const current = readSession();
+      if (!current) return;
+
+      if (current.role !== "ADMIN") return;
+
+      const email = normalizeEmail(current.email);
+
+      // default admin always valid in demo
+      if (email === "admin@amr.com") return;
+
+      // created admin must exist AND be active
+      const active = getActiveAdminUserByEmail(email);
+      if (!active) {
+        // instant kick out
+        setUser(null);
+        writeSession(null);
+      }
+    };
+
+    validateAdminSession();
+
+    const onAdminUsersUpdated = () => validateAdminSession();
+
+    const onStorage = (e: StorageEvent) => {
+      if (!e.key) return;
+      if (e.key === ADMIN_USERS_KEY_V1 || e.key === SESSION_KEY) validateAdminSession();
+    };
+
+    window.addEventListener(ADMIN_USERS_UPDATED_EVENT, onAdminUsersUpdated as any);
+    window.addEventListener("storage", onStorage);
+
+    return () => {
+      window.removeEventListener(ADMIN_USERS_UPDATED_EVENT, onAdminUsersUpdated as any);
+      window.removeEventListener("storage", onStorage);
+    };
+  }, []);
+
   const login: AuthContextValue["login"] = (email, password) => {
     const cleanEmail = normalizeEmail(email);
     const cleanPass = (password || "").trim();
@@ -182,33 +235,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { ok: false, message: "Please enter email and password." };
     }
 
-    // Admin demo (hardcoded)
-    if (cleanEmail === "admin@amr.com" && cleanPass === "admin123") {
-      const adminUser = getAdminUser();
+    // ✅ Default Admin (hardcoded)
+    if (cleanEmail === "admin@amr.com") {
+      if (cleanPass !== "admin123") return { ok: false, message: "Wrong password." };
+
+      const adminUser = getDefaultAdminUser();
       setUser(adminUser);
       writeSession(adminUser);
       return { ok: true, message: "Logged in as Admin." };
     }
 
-    // USER login (multi-user)
+    // ✅ Admin Panel created ADMIN accounts (must be active)
+    const anyAdmin = getAdminUserByEmail(cleanEmail);
+    if (anyAdmin) {
+      if (!anyAdmin.active) return { ok: false, message: "This admin account is deactivated." };
+      const pass = String(anyAdmin.password ?? "").trim();
+      if (!pass) return { ok: false, message: "Password not set for this admin account." };
+      if (pass !== cleanPass) return { ok: false, message: "Wrong password." };
+
+      const nextAdmin: AuthUser = {
+        name: String(anyAdmin.name ?? "Admin User") || "Admin User",
+        email: cleanEmail,
+        role: "ADMIN",
+      };
+
+      setUser(nextAdmin);
+      writeSession(nextAdmin);
+      return { ok: true, message: "Logged in as Admin." };
+    }
+
+    // ✅ USER login (multi-user)
     const users = readUsers();
     const found = users.find((u) => normalizeEmail(u.email) === cleanEmail);
 
     if (!found) {
-      return {
-        ok: false,
-        message: "Account not found. Please register first.",
-      };
+      return { ok: false, message: "Account not found. Please register first." };
     }
 
-    // If password exists, verify it
+    // verify password if exists
     if (typeof found.password === "string" && found.password.length > 0) {
-      if (found.password !== cleanPass) {
-        return { ok: false, message: "Wrong password." };
-      }
-    } else {
-      // legacy user without password: allow login to keep compatibility
-      // but tell them to set password using Forgot Password
+      if (found.password !== cleanPass) return { ok: false, message: "Wrong password." };
     }
 
     const nextUser: AuthUser = { name: found.name, email: cleanEmail, role: "USER" };
@@ -230,24 +296,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const cleanEmail = normalizeEmail(email);
     const cleanPass = (password || "").trim();
 
-    if (!cleanName || !cleanEmail || !cleanPass) {
-      return { ok: false, message: "Please fill all fields." };
-    }
-    if (!isValidEmail(cleanEmail)) {
-      return { ok: false, message: "Please enter a valid email." };
-    }
-    if (cleanPass.length < 6) {
-      return { ok: false, message: "Password must be at least 6 characters." };
-    }
-    if (cleanEmail === "admin@amr.com") {
+    if (!cleanName || !cleanEmail || !cleanPass) return { ok: false, message: "Please fill all fields." };
+    if (!isValidEmail(cleanEmail)) return { ok: false, message: "Please enter a valid email." };
+    if (cleanPass.length < 6) return { ok: false, message: "Password must be at least 6 characters." };
+
+    // ✅ block default + created admin emails from being registered as USER
+    if (isEmailReservedForAdmin(cleanEmail)) {
       return { ok: false, message: "This email is reserved for Admin." };
     }
 
     const users = readUsers();
     const exists = users.some((u) => normalizeEmail(u.email) === cleanEmail);
-    if (exists) {
-      return { ok: false, message: "Email already registered. Please login." };
-    }
+    if (exists) return { ok: false, message: "Email already registered. Please login." };
 
     const newUser: StoredUser = {
       name: cleanName,
@@ -266,17 +326,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { ok: true, message: "Registration successful. You are now logged in." };
   };
 
-  const logout = () => {
-    setUser(null);
-    writeSession(null);
-  };
-
   const requestPasswordResetOtp: AuthContextValue["requestPasswordResetOtp"] = (email) => {
     const cleanEmail = normalizeEmail(email);
 
     if (!cleanEmail) return { ok: false, message: "Please enter your email." };
     if (!isValidEmail(cleanEmail)) return { ok: false, message: "Please enter a valid email." };
-    if (cleanEmail === "admin@amr.com") {
+
+    // ✅ disable reset for any admin (default + created) in demo
+    if (isEmailReservedForAdmin(cleanEmail)) {
       return { ok: false, message: "Admin password reset is disabled in demo." };
     }
 
@@ -286,15 +343,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const otp = generateOtp();
     const map = readResetMap();
-    map[cleanEmail] = { otp, expiresAt: Date.now() + 5 * 60 * 1000 }; // 5 minutes
+    map[cleanEmail] = { otp, expiresAt: Date.now() + 5 * 60 * 1000 };
     writeResetMap(map);
 
-    // demo: return otp so user can see it
-    return {
-      ok: true,
-      message: "OTP generated (demo). Use it within 5 minutes.",
-      otp,
-    };
+    return { ok: true, message: "OTP generated (demo). Use it within 5 minutes.", otp };
   };
 
   const resetPasswordWithOtp: AuthContextValue["resetPasswordWithOtp"] = (email, otp, newPassword) => {
@@ -302,11 +354,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const cleanOtp = (otp || "").trim();
     const cleanPass = (newPassword || "").trim();
 
-    if (!cleanEmail || !cleanOtp || !cleanPass) {
-      return { ok: false, message: "Please fill all fields." };
-    }
-    if (cleanPass.length < 6) {
-      return { ok: false, message: "Password must be at least 6 characters." };
+    if (!cleanEmail || !cleanOtp || !cleanPass) return { ok: false, message: "Please fill all fields." };
+    if (cleanPass.length < 6) return { ok: false, message: "Password must be at least 6 characters." };
+
+    // ✅ block admin resets in demo
+    if (isEmailReservedForAdmin(cleanEmail)) {
+      return { ok: false, message: "Admin password reset is disabled in demo." };
     }
 
     const map = readResetMap();
@@ -319,9 +372,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { ok: false, message: "OTP expired. Please request OTP again." };
     }
 
-    if (entry.otp !== cleanOtp) {
-      return { ok: false, message: "Wrong OTP." };
-    }
+    if (entry.otp !== cleanOtp) return { ok: false, message: "Wrong OTP." };
 
     const users = readUsers();
     const idx = users.findIndex((u) => normalizeEmail(u.email) === cleanEmail);
