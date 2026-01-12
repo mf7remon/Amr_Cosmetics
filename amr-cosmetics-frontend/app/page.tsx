@@ -2,6 +2,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useCart } from "@/app/context/CartContext";
 import { Product, safeReadProducts } from "@/app/lib/productsStore";
@@ -162,6 +163,7 @@ function BlogCard({ post }: { post: BlogPost }) {
 }
 
 export default function Home() {
+  const router = useRouter();
   const { addItem } = useCart();
 
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -169,6 +171,7 @@ export default function Home() {
   const [products, setProducts] = useState<Product[]>([]);
   const [productsLoaded, setProductsLoaded] = useState(false);
 
+  // ✅ keep Trending fixed on Home
   const [activeCat, setActiveCat] = useState<string>("All");
 
   const [trendIndex, setTrendIndex] = useState(0);
@@ -344,8 +347,15 @@ export default function Home() {
     addItem({ id: p.id, name: p.title, price: p.price });
   }
 
+  // ✅ CHANGED: category click will go to Products page (Trending stays fixed on Home)
   function selectCategory(c: string) {
-    setActiveCat(c);
+    if (c === "All") {
+      setActiveCat("All");
+      setDrawerOpen(false);
+      return;
+    }
+
+    router.push(`/products?cat=${encodeURIComponent(c)}`);
     setDrawerOpen(false);
   }
 
@@ -627,6 +637,7 @@ export default function Home() {
             </div>
           </div>
         ) : (
+          // (this block will basically never show now, but kept untouched)
           <div className="mt-10">
             <div className="flex items-end justify-between">
               <div>
