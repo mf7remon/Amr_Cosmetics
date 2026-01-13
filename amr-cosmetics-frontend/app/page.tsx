@@ -347,7 +347,7 @@ export default function Home() {
     addItem({ id: p.id, name: p.title, price: p.price });
   }
 
-  // ✅ CHANGED: category click will go to Products page (Trending stays fixed on Home)
+  // ✅ category click will go to Products page (Trending stays fixed on Home)
   function selectCategory(c: string) {
     if (c === "All") {
       setActiveCat("All");
@@ -361,17 +361,16 @@ export default function Home() {
 
   return (
     <div className="w-full bg-black text-white">
-      {/* Drawer overlay */}
+      {/* ✅ Home drawer (DESKTOP ONLY) */}
       <div
-        className={`fixed inset-0 z-40 bg-black/60 transition ${
+        className={`hidden md:block fixed inset-0 z-40 bg-black/60 transition ${
           drawerOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
         }`}
         onClick={() => setDrawerOpen(false)}
       />
 
-      {/* Drawer */}
       <aside
-        className={`fixed top-0 left-0 h-full w-[300px] z-50 bg-zinc-950 border-r border-zinc-800 transition-transform ${
+        className={`hidden md:block fixed top-0 left-0 h-full w-[300px] z-50 bg-zinc-950 border-r border-zinc-800 transition-transform ${
           drawerOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -412,6 +411,7 @@ export default function Home() {
         {/* HERO */}
         <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 md:p-8">
           <div className="flex items-start gap-5">
+            {/* ✅ Hero hamburger: DESKTOP ONLY (mobile hidden) */}
             <button
               type="button"
               onClick={() => setDrawerOpen(true)}
@@ -497,7 +497,7 @@ export default function Home() {
               </div>
 
               <Link href="/products" className="text-sm text-pink-400 hover:text-pink-300">
-                View all →
+                View all →{" "}
               </Link>
             </div>
 
@@ -540,12 +540,11 @@ export default function Home() {
                       <div className="flex items-center justify-between">
                         <h3 className="text-base font-semibold text-white">{cat}</h3>
 
-                        {/* ✅ More → goes to products page filtered by that category */}
                         <Link
                           href={`/products?cat=${encodeURIComponent(cat)}`}
                           className="text-sm text-pink-400 hover:text-pink-300"
                         >
-                          More →
+                          More →{" "}
                         </Link>
                       </div>
 
@@ -581,7 +580,7 @@ export default function Home() {
                 </div>
 
                 <Link href="/products" className="text-sm text-pink-400 hover:text-pink-300">
-                  View all →
+                  View all →{" "}
                 </Link>
               </div>
 
@@ -613,7 +612,7 @@ export default function Home() {
                 </div>
 
                 <Link href="/blogs" className="text-sm text-pink-400 hover:text-pink-300">
-                  View all →
+                  View all →{" "}
                 </Link>
               </div>
 
@@ -646,7 +645,7 @@ export default function Home() {
               </div>
 
               <Link href="/products" className="text-sm text-pink-400 hover:text-pink-300">
-                Open Products →
+                Open Products →{" "}
               </Link>
             </div>
 

@@ -79,8 +79,6 @@ export default function ProductsPage() {
   useEffect(() => {
     const urlCat = (searchParams.get("cat") ?? "").trim();
     if (!urlCat) return;
-
-    // If it exists in options, set it; otherwise still set it (works if products have it)
     setActiveCat(urlCat);
   }, [searchParams]);
 
@@ -105,6 +103,13 @@ export default function ProductsPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-10">
+      {/* ✅ Products page ONLY: image part a little taller (card height increases via image area) */}
+      <style jsx global>{`
+        .products-page-grid .h-56 {
+          height: 16rem; /* 256px (h-64 feel) */
+        }
+      `}</style>
+
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold text-pink-500">Products</h1>
@@ -166,8 +171,8 @@ export default function ProductsPage() {
 
       <div className="mt-8">
         {!loaded ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
-            {Array.from({ length: 9 }).map((_, i) => (
+          <div className="products-page-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+            {Array.from({ length: 12 }).map((_, i) => (
               <SkeletonProductCard key={i} />
             ))}
           </div>
@@ -179,7 +184,7 @@ export default function ProductsPage() {
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
+          <div className="products-page-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
             {filtered.map((p) => (
               <ProductCard key={p.id} product={p} />
             ))}

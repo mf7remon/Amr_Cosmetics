@@ -11,6 +11,8 @@ import {
   BLOGS_KEY,
 } from "@/app/lib/blogsStore";
 
+import { Product, safeReadProducts } from "@/app/lib/productsStore";
+
 type FormState = {
   title: string;
   category: string;
@@ -27,7 +29,8 @@ const emptyForm: FormState = {
   content: "",
 };
 
-const CATEGORIES = [
+// ✅ fallback defaults
+const DEFAULT_CATEGORIES = [
   "Beauty care",
   "Gift",
   "Lifestyle",
@@ -44,11 +47,12 @@ function todayISO() {
 
 export default function AdminBlogsPage() {
   const [items, setItems] = useState<BlogPost[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [form, setForm] = useState<FormState>(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [status, setStatus] = useState<string>("");
 
-  // Load once + sync from other tabs (storage event only)
+  // ✅ Load blogs + sync
   useEffect(() => {
     const load = () => setItems(safeReadBlogs());
     load();
@@ -57,8 +61,34 @@ export default function AdminBlogsPage() {
       if (e.key === BLOGS_KEY) load();
     };
 
+    const onCustom = () => load();
+
     window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
+    window.addEventListener("amr-blogs-updated", onCustom as any);
+
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("amr-blogs-updated", onCustom as any);
+    };
+  }, []);
+
+  // ✅ Load products for category list + sync
+  useEffect(() => {
+    const load = () => setProducts(safeReadProducts());
+    load();
+
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "amr_products") load();
+    };
+    const onCustom = () => load();
+
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("amr-products-updated", onCustom as any);
+
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("amr-products-updated", onCustom as any);
+    };
   }, []);
 
   const sorted = useMemo(() => {
@@ -67,12 +97,41 @@ export default function AdminBlogsPage() {
     return copy;
   }, [items]);
 
+  // ✅ FINAL dynamic category list = defaults + product categories + existing blog categories
+  const categoryOptions = useMemo(() => {
+    const set = new Set<string>();
+
+    // defaults
+    for (const c of DEFAULT_CATEGORIES) set.add(c);
+
+    // from products
+    for (const p of products) {
+      const c = (p.category ?? "").trim();
+      if (c) set.add(c);
+    }
+
+    // from existing blogs
+    for (const b of items) {
+      const c = (b.category ?? "").trim();
+      if (c) set.add(c);
+    }
+
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [products, items]);
+
+  // ✅ ensure form.category is not blank
+  useEffect(() => {
+    if (!form.category?.trim()) {
+      setForm((s) => ({ ...s, category: categoryOptions[0] ?? "Beauty care" }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categoryOptions.join("|")]);
+
   function resetForm() {
     setForm(emptyForm);
     setEditingId(null);
   }
 
-  // One safe place to update state + persist
   function commit(next: BlogPost[], msg?: string) {
     setItems(next);
     safeWriteBlogs(next);
@@ -94,7 +153,6 @@ export default function AdminBlogsPage() {
 
     const baseSlug = createBlogSlug(title);
 
-    // ADD NEW
     if (!editingId) {
       const id =
         typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -123,7 +181,6 @@ export default function AdminBlogsPage() {
       return;
     }
 
-    // UPDATE
     const next = items.map((b) => {
       if (b.id !== editingId) return b;
 
@@ -174,9 +231,7 @@ export default function AdminBlogsPage() {
       <div className="flex items-start justify-between gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-bold text-pink-500">Admin • Blogs</h1>
-          <p className="text-gray-400 mt-1">
-            Blog management (localStorage), later backend + DB.
-          </p>
+          <p className="text-gray-400 mt-1">Blog management (localStorage), later backend + DB.</p>
           {status ? <p className="text-sm mt-2 text-pink-400">{status}</p> : null}
         </div>
 
@@ -192,9 +247,7 @@ export default function AdminBlogsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* FORM */}
         <div className="border border-zinc-800 bg-zinc-900 rounded p-6">
-          <h2 className="text-xl font-semibold mb-4">
-            {editingId ? "Edit Blog" : "Add New Blog"}
-          </h2>
+          <h2 className="text-xl font-semibold mb-4">{editingId ? "Edit Blog" : "Add New Blog"}</h2>
 
           <label className="block text-sm text-gray-300 mb-1">Title</label>
           <input
@@ -209,16 +262,19 @@ export default function AdminBlogsPage() {
             value={form.category}
             onChange={(e) => setForm((s) => ({ ...s, category: e.target.value }))}
           >
-            {CATEGORIES.map((c) => (
+            {/* if editing an old blog category not in list, still show it */}
+            {!categoryOptions.includes(form.category) ? (
+              <option value={form.category}>{form.category}</option>
+            ) : null}
+
+            {categoryOptions.map((c) => (
               <option key={c} value={c}>
                 {c}
               </option>
             ))}
           </select>
 
-          <label className="block text-sm text-gray-300 mb-1">
-            Cover Image URL (or /path)
-          </label>
+          <label className="block text-sm text-gray-300 mb-1">Cover Image URL (or /path)</label>
           <input
             className="w-full mb-4 px-3 py-2 rounded bg-zinc-800 text-white outline-none"
             value={form.coverImage}

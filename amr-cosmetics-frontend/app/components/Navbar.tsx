@@ -10,6 +10,16 @@ import { useAuth } from "@/app/context/AuthContext";
 import { useCart } from "@/app/context/CartContext";
 import { Product, safeReadProducts } from "@/app/lib/productsStore";
 
+const FIXED_CATEGORIES = [
+  "Clothing",
+  "Bags",
+  "Jewellery",
+  "Beauty care",
+  "Footware",
+  "Gift",
+  "Tech Accessories",
+];
+
 function NavLink({
   href,
   label,
@@ -38,16 +48,18 @@ function NavLink({
   );
 }
 
-function normalize(s: string) {
-  return String(s ?? "").trim().toLowerCase();
-}
-
 function buildCategories(products: Product[]) {
   const set = new Set<string>();
+
+  // fixed ones always
+  for (const c of FIXED_CATEGORIES) set.add(c);
+
+  // dynamic from products
   for (const p of products) {
     const c = (p.category ?? "").trim();
     if (c) set.add(c);
   }
+
   return ["All", ...Array.from(set).sort((a, b) => a.localeCompare(b))];
 }
 
@@ -138,6 +150,14 @@ export default function Navbar() {
     else router.push(`/products?cat=${encodeURIComponent(c)}`);
   };
 
+  const drawerBtn = (active?: boolean) =>
+    [
+      "w-full text-left px-4 py-2 rounded border transition text-sm",
+      active
+        ? "bg-pink-500/15 border-pink-500 text-pink-300"
+        : "bg-zinc-900 border-zinc-800 text-gray-200 hover:border-pink-500",
+    ].join(" ");
+
   return (
     <header className="w-full border-b border-white/10 bg-black">
       {/* Mobile Drawer Overlay */}
@@ -202,34 +222,29 @@ export default function Navbar() {
           <p className="text-xs text-gray-500 mb-3">Navigation</p>
 
           <div className="space-y-2">
-            <button
-              type="button"
-              onClick={() => goTo("/")}
-              className="w-full text-left px-4 py-2 rounded bg-zinc-900 border border-zinc-800 text-gray-200 hover:border-pink-500"
-            >
+            <button type="button" onClick={() => goTo("/")} className={drawerBtn(isActive("/"))}>
               Home
             </button>
 
             <button
               type="button"
               onClick={() => goTo("/products")}
-              className="w-full text-left px-4 py-2 rounded bg-zinc-900 border border-zinc-800 text-gray-200 hover:border-pink-500"
+              className={drawerBtn(isActive("/products"))}
             >
               Products
             </button>
 
-            <button
-              type="button"
-              onClick={() => goTo("/blogs")}
-              className="w-full text-left px-4 py-2 rounded bg-zinc-900 border border-zinc-800 text-gray-200 hover:border-pink-500"
-            >
+            <button type="button" onClick={() => goTo("/blogs")} className={drawerBtn(isActive("/blogs"))}>
               Blogs
             </button>
 
             <button
               type="button"
               onClick={() => goTo("/cart")}
-              className="w-full text-left px-4 py-2 rounded bg-zinc-900 border border-zinc-800 text-gray-200 hover:border-pink-500 flex items-center justify-between"
+              className={[
+                drawerBtn(isActive("/cart")),
+                "flex items-center justify-between",
+              ].join(" ")}
             >
               <span>Cart</span>
               {cartCount > 0 ? (
@@ -243,36 +258,24 @@ export default function Navbar() {
               <button
                 type="button"
                 onClick={() => goTo("/account")}
-                className="w-full text-left px-4 py-2 rounded bg-zinc-900 border border-zinc-800 text-gray-200 hover:border-pink-500"
+                className={drawerBtn(isActive("/account"))}
               >
                 Account
               </button>
             ) : (
-              <button
-                type="button"
-                onClick={() => goTo("/login")}
-                className="w-full text-left px-4 py-2 rounded bg-zinc-900 border border-zinc-800 text-gray-200 hover:border-pink-500"
-              >
+              <button type="button" onClick={() => goTo("/login")} className={drawerBtn(isActive("/login"))}>
                 Login
               </button>
             )}
 
             {user?.role === "ADMIN" ? (
-              <button
-                type="button"
-                onClick={() => goTo("/admin")}
-                className="w-full text-left px-4 py-2 rounded bg-zinc-900 border border-zinc-800 text-gray-200 hover:border-pink-500"
-              >
+              <button type="button" onClick={() => goTo("/admin")} className={drawerBtn(isActive("/admin"))}>
                 Admin
               </button>
             ) : null}
 
             {isLoggedIn ? (
-              <button
-                type="button"
-                onClick={onLogout}
-                className="w-full text-left px-4 py-2 rounded bg-zinc-900 border border-zinc-800 text-gray-200 hover:border-pink-500"
-              >
+              <button type="button" onClick={onLogout} className={drawerBtn(false)}>
                 Logout
               </button>
             ) : null}
@@ -285,12 +288,7 @@ export default function Navbar() {
 
           <div className="space-y-2">
             {categories.map((c) => (
-              <button
-                key={c}
-                type="button"
-                onClick={() => goToCategory(c)}
-                className="w-full text-left px-4 py-2 rounded bg-zinc-900 border border-zinc-800 text-gray-200 hover:border-pink-500"
-              >
+              <button key={c} type="button" onClick={() => goToCategory(c)} className={drawerBtn(false)}>
                 {c}
               </button>
             ))}
