@@ -1,5 +1,6 @@
 // app/components/Footer.tsx
 import Image from "next/image";
+import Link from "next/link";
 
 const CONTACTS = {
   email: "hurreh1234@gmail.com",
@@ -61,35 +62,28 @@ function IconInstagram() {
         stroke="currentColor"
         strokeWidth="2"
       />
-      <path
-        d="M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"
-        stroke="currentColor"
-        strokeWidth="2"
-      />
-      <path
-        d="M17 7.3h.01"
-        stroke="currentColor"
-        strokeWidth="3"
-        strokeLinecap="round"
-      />
+      <path d="M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" stroke="currentColor" strokeWidth="2" />
+      <path d="M17 7.3h.01" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
     </svg>
   );
 }
 
 export default function Footer() {
+  const year = new Date().getFullYear();
+
   return (
     <footer className="w-full bg-zinc-900 border-t border-zinc-800">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        <div className="flex flex-col gap-8 md:flex-row md:items-start md:justify-between">
+        <div className="flex flex-col gap-10 md:flex-row md:items-start md:justify-between">
           {/* Left: Logo + Description */}
           <div className="max-w-md">
             <div className="flex items-center gap-3">
               <Image
                 src="/logo.png"
                 alt="Amr Cosmetics"
-                width={170}
-                height={60}
-                className="h-12 w-auto object-contain"
+                width={220}
+                height={90}
+                className="h-14 w-auto object-contain"
                 priority
               />
             </div>
@@ -99,7 +93,29 @@ export default function Footer() {
             </p>
           </div>
 
-          {/* Right: Contact Icons only */}
+          {/* Middle: Policies */}
+          <div>
+            <p className="text-sm font-semibold text-gray-200">Quick Links</p>
+            <div className="mt-4 grid gap-2">
+              <Link href="/about" className="text-sm text-gray-300 hover:text-pink-300">
+                About Us
+              </Link>
+              <Link href="/privacy-policy" className="text-sm text-gray-300 hover:text-pink-300">
+                Privacy Policy
+              </Link>
+              <Link href="/terms" className="text-sm text-gray-300 hover:text-pink-300">
+                Terms & Conditions
+              </Link>
+              <Link href="/shipping-delivery" className="text-sm text-gray-300 hover:text-pink-300">
+                Shipping & Delivery
+              </Link>
+              <Link href="/returns-refunds" className="text-sm text-gray-300 hover:text-pink-300">
+                Returns & Refunds
+              </Link>
+            </div>
+          </div>
+
+          {/* Right: Contact Icons */}
           <div className="md:text-right">
             <p className="text-sm font-semibold text-gray-200">Contact Us</p>
 
@@ -149,8 +165,26 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="mt-10 pt-6 border-t border-zinc-800 text-center text-xs text-gray-400">
-          © 2025 Amr Cosmetics. All rights reserved.
+        {/* Payments */}
+        <div className="mt-10 pt-6 border-t border-zinc-800">
+          <p className="text-base font-bold text-gray-200 text-center">We accept payments</p>
+
+          <div className="mt-4 flex justify-center">
+            <Image
+              src="/sslcommerz.jpeg"
+              alt="SSLCommerz accepted payment methods"
+              width={1000}
+              height={220}
+              className="w-full max-w-3xl h-auto rounded-xl bg-white p-2"
+            />
+          </div>
+
+          {/* underline under the picture */}
+          <div className="mt-6 h-px w-full bg-zinc-800" />
+
+          <div className="mt-6 text-center text-xs text-gray-400">
+            © {year} Amr Cosmetics. All rights reserved.
+          </div>
         </div>
       </div>
     </footer>
