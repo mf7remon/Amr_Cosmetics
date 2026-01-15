@@ -209,7 +209,7 @@ export default function AdminUsersPage() {
         <div>
           <h1 className="text-3xl font-bold text-pink-500">Admin • Admin Users</h1>
           <p className="text-gray-400 mt-1">
-            Create/edit Admin login credentials (demo: stored in localStorage).
+            Create/edit Admin login credentials
           </p>
           {status ? <p className="text-sm mt-2 text-pink-400">{status}</p> : null}
         </div>

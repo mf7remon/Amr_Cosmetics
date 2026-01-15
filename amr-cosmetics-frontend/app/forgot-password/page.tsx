@@ -59,10 +59,6 @@ export default function ForgotPasswordPage() {
               </button>
 
               {msg && <p className="text-sm text-gray-300">{msg}</p>}
-
-              <p className="text-xs text-gray-400">
-                Note: এটা demo, তাই OTP এখানে দেখানো হবে
-              </p>
             </form>
           ) : (
             <form onSubmit={handleReset} className="space-y-4">

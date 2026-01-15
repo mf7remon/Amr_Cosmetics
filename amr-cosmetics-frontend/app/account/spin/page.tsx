@@ -155,7 +155,7 @@ export default function SpinPage() {
       const seg = segments[targetIndex];
 
       if (seg.kind === "LOSE") {
-        setResultText("Better luck next time 🙂");
+        setResultText("Better luck next time 🙃");
 
         // mark spun once (so next spins fixed lose)
         if (!spunOnce) {
@@ -201,7 +201,7 @@ export default function SpinPage() {
           <div>
             <h1 className="text-3xl font-bold text-pink-500">Spin to Win 🎡</h1>
             <p className="text-gray-300 mt-2">
-              Admin active coupons থেকে wheel তৈরি হয়{spunOnce ? " | You already spun once." : "."}
+              {spunOnce ? " | You already spun once." : "."}
             </p>
           </div>
 
@@ -300,10 +300,6 @@ export default function SpinPage() {
             <div className="mt-4 border border-zinc-800 bg-zinc-950/40 rounded-lg p-4">
               <p className="text-lg font-semibold">{resultText || "Spin করে দেখো কী জেতো!"}</p>
             </div>
-
-            <p className="text-sm text-gray-400 mt-4">
-              Winning coupon হলে সেটা <span className="text-pink-400 font-semibold">My Coupons</span> এ থাকবে।
-            </p>
           </div>
         </div>
       </div>

@@ -95,7 +95,7 @@ export default function Footer() {
 
           {/* Middle: Policies */}
           <div>
-            <p className="text-sm font-semibold text-gray-200">Quick Links</p>
+            <p className="text-sm font-bold text-gray-200">Quick Links</p>
             <div className="mt-4 grid gap-2">
               <Link href="/about" className="text-sm text-gray-300 hover:text-pink-300">
                 About Us
@@ -117,7 +117,7 @@ export default function Footer() {
 
           {/* Right: Contact Icons */}
           <div className="md:text-right">
-            <p className="text-sm font-semibold text-gray-200">Contact Us</p>
+            <p className="text-sm font-bold text-gray-200">Contact Us</p>
 
             <div className="mt-4 flex md:justify-end gap-3">
               <a

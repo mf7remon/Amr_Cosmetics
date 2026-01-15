@@ -55,7 +55,6 @@ export default function MyCouponsPage() {
     <div className="max-w-4xl mx-auto px-6 py-10">
       <h1 className="text-2xl font-bold text-pink-500 mb-6">My Coupons</h1>
 
-      {/* ✅ If first spin was lose, show it here */}
       {loseEntry ? (
         <div className="border border-zinc-800 rounded p-4 bg-zinc-900 mb-6">
           <h3 className="font-semibold text-white">Better luck next time 😅</h3>

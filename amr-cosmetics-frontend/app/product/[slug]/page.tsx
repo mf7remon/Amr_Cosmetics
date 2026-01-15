@@ -432,10 +432,6 @@ export default function ProductDetailsPage() {
             </button>
           </div>
 
-          <p className="text-xs text-gray-500 mt-4">
-            Buy Now দিলে product auto cart এ add হবে, তারপর checkout এ যাবে।
-          </p>
-
           {/* Tabs */}
           <div className="mt-6 border-b border-zinc-800 flex items-center gap-6">
             <button

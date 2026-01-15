@@ -231,7 +231,7 @@ export default function AdminBlogsPage() {
       <div className="flex items-start justify-between gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-bold text-pink-500">Admin • Blogs</h1>
-          <p className="text-gray-400 mt-1">Blog management (localStorage), later backend + DB.</p>
+          <p className="text-gray-400 mt-1">Blog management</p>
           {status ? <p className="text-sm mt-2 text-pink-400">{status}</p> : null}
         </div>
 
@@ -315,10 +315,6 @@ export default function AdminBlogsPage() {
               </button>
             ) : null}
           </div>
-
-          <p className="text-xs text-gray-400 mt-4">
-            Slug auto তৈরি হবে title থেকে, duplicate হলে suffix যোগ হবে।
-          </p>
         </div>
 
         {/* LIST */}

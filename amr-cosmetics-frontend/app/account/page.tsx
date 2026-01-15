@@ -360,7 +360,7 @@ export default function AccountPage() {
                   Spin to Win <span aria-hidden="true">🎡</span>
                 </h2>
                 <p className="text-gray-300 mt-2">
-                  Admin active coupons থেকে wheel তৈরি হয় <span className="text-gray-500">|</span>{" "}
+                  <span className="text-gray-500">|</span>{" "}
                   {alreadySpun ? "You already spun once." : "You can spin once."}
                 </p>
               </div>
@@ -497,11 +497,10 @@ export default function AccountPage() {
                   </div>
 
                   <p className="text-gray-300 mt-5">
-                    Winning coupon হলে সেটা{" "}
+                    Winning coupon is in{" "}
                     <Link href="/account/coupons" className="text-pink-400 font-semibold hover:text-pink-300">
                       My Coupons
                     </Link>{" "}
-                    এ থাকবে।
                   </p>
 
                   {segments.length === 0 ? <p className="text-sm text-gray-400 mt-3">No active admin coupons right now.</p> : null}

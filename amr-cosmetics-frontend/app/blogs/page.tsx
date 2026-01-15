@@ -115,9 +115,6 @@ export default function BlogsPage() {
         )}
 
         <div className="mt-10 border border-zinc-800 bg-zinc-950 rounded-2xl p-6">
-          <p className="text-sm text-gray-300">
-            Blogs এখন admin panel থেকে manage করা যাবে, backend আসলে later API দিয়ে replace হবে।
-          </p>
         </div>
       </div>
     </div>

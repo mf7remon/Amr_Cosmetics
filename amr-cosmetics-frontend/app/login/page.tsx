@@ -68,9 +68,6 @@ export default function LoginPage() {
           </div>
 
           <div className="text-sm text-gray-400 mt-2">
-            <p>
-              Demo Admin: <span className="text-gray-200">admin@amr.com / admin123</span>
-            </p>
           </div>
         </form>
       </div>

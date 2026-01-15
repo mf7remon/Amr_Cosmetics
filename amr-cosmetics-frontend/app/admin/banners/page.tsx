@@ -160,7 +160,7 @@ export default function AdminBannersPage() {
       <div className="flex items-start justify-between gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-bold text-pink-500">Admin • Banners</h1>
-          <p className="text-gray-400 mt-1">Add/Edit/Delete banners (paste image URL like imgbb).</p>
+          <p className="text-gray-400 mt-1">Add/Edit/Delete banners</p>
           {status ? <p className="text-sm mt-2 text-pink-400">{status}</p> : null}
         </div>
 
@@ -246,10 +246,6 @@ export default function AdminBannersPage() {
               </button>
             ) : null}
           </div>
-
-          <p className="text-xs text-gray-400 mt-4">
-            Tip: imgbb থেকে direct image link copy করে এখানে paste করলেই হবে।
-          </p>
         </div>
 
         {/* LIST */}

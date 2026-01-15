@@ -2,7 +2,12 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { safeReadAllOrders, updateOrderStatusInStorage, Order, OrderStatus } from "@/app/lib/ordersStore";
+import {
+  safeReadAllOrders,
+  updateOrderStatusInStorage,
+  Order,
+  OrderStatus,
+} from "@/app/lib/ordersStore";
 
 const STATUS_OPTIONS: OrderStatus[] = ["PENDING", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED"];
 
@@ -61,12 +66,12 @@ export default function AdminOrdersPage() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-pink-500">Admin • Orders</h1>
-          <p className="text-gray-400 mt-2">
-            Checkout থেকে Place Order করলে এখানে order আসবে, তারপর এখান থেকে status update করা যাবে।
-          </p>
         </div>
 
-        <Link href="/admin" className="border border-zinc-700 px-4 py-2 rounded hover:border-pink-500 h-fit">
+        <Link
+          href="/admin"
+          className="border border-zinc-700 px-4 py-2 rounded hover:border-pink-500 h-fit"
+        >
           ← Back
         </Link>
       </div>
@@ -132,6 +137,11 @@ export default function AdminOrdersPage() {
                   <div className="min-w-0">
                     <p className="text-sm text-gray-400">Order ID</p>
                     <p className="font-semibold text-white break-all">{o.id}</p>
+
+                    {/* ✅ Payment method line added */}
+                    <p className="text-sm text-gray-400 mt-2">
+                      Payment Method: <span className="text-gray-200">{o.paymentMethod || "—"}</span>
+                    </p>
 
                     <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>

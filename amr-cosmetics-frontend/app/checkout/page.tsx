@@ -1,3 +1,4 @@
+// app/checkout/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -49,6 +50,9 @@ function readMyCoupon(email?: string | null, now = Date.now()) {
   return { code, kind, value, expiresAt };
 }
 
+const PM_SSL = "SSLCommerz (bKash/rocket/Nagad/bank)";
+const PM_COD = "Cash on Delivery";
+
 export default function CheckoutPage() {
   const {
     items,
@@ -81,7 +85,8 @@ export default function CheckoutPage() {
   const [shippingZone, setShippingZone] = useState<ShippingZone>("INSIDE_DHAKA");
   const shippingFee = shippingZone === "INSIDE_DHAKA" ? 50 : 100;
 
-  const [paymentMethod, setPaymentMethod] = useState("SSLCommerz (bKash / Card / Nagad)");
+  // ✅ now 2 payment options
+  const [paymentMethod, setPaymentMethod] = useState(PM_SSL);
 
   const grandTotal = useMemo(() => Math.max(0, total + shippingFee), [total, shippingFee]);
 
@@ -134,6 +139,9 @@ export default function CheckoutPage() {
     const now = Date.now();
     const orderId = OrdersStore.makeOrderId();
 
+    // ✅ COD হলে PENDING, SSL হলে PROCESSING
+    const initialStatus: OrdersStore.OrderStatus = paymentMethod === PM_SSL ? "PROCESSING" : "PENDING";
+
     const order: OrdersStore.Order = {
       id: orderId,
 
@@ -161,7 +169,7 @@ export default function CheckoutPage() {
         ? { code: appliedCoupon.code, type: appliedCoupon.type, value: appliedCoupon.value }
         : null,
 
-      status: "PENDING",
+      status: initialStatus,
       createdAt: now,
       updatedAt: now,
     };
@@ -267,7 +275,8 @@ export default function CheckoutPage() {
                       onChange={(e) => setPaymentMethod(e.target.value)}
                       className="w-full px-3 py-2 rounded bg-zinc-800 text-white outline-none"
                     >
-                      <option>SSLCommerz (bKash / Card / Nagad)</option>
+                      <option>{PM_SSL}</option>
+                      <option>{PM_COD}</option>
                     </select>
                   </div>
                 </div>
@@ -345,10 +354,6 @@ export default function CheckoutPage() {
                 )}
 
                 {couponMsg ? <p className="mt-3 text-sm text-gray-300">{couponMsg}</p> : null}
-
-                <p className="mt-3 text-xs text-gray-500">
-                  Note: Checkout এ শুধু আপনার won Spin coupon টা কাজ করবে।
-                </p>
               </div>
 
               {/* Items */}
@@ -404,10 +409,6 @@ export default function CheckoutPage() {
               >
                 Place Order
               </button>
-
-              <p className="mt-3 text-xs text-gray-400">
-                Order place হলে admin panel এ Orders এ সাথে সাথে show করবে।
-              </p>
             </div>
           </div>
         )}

@@ -272,18 +272,6 @@ export default function AdminPage() {
             <p className="text-pink-400 text-sm mt-4">Open →</p>
           </Link>
         </div>
-
-        <div className="mt-10 bg-zinc-900 border border-zinc-800 rounded p-5">
-          <p className="text-gray-300">Admin pages:</p>
-          <ul className="list-disc pl-6 mt-2 text-gray-400">
-            <li>/admin/products</li>
-            <li>/admin/orders</li>
-            <li>/admin/coupons</li>
-            <li>/admin/blogs</li>
-            <li>/admin/banners</li>
-            <li>/admin/admin-users</li>
-          </ul>
-        </div>
       </div>
     </div>
   );

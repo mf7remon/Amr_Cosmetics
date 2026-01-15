@@ -12,11 +12,13 @@ export type OrderItem = {
   qty: number;
 };
 
-export type OrderCoupon = {
-  code: string;
-  type: "PERCENT";
-  value: number;
-} | null;
+export type OrderCoupon =
+  | {
+      code: string;
+      type: "PERCENT";
+      value: number;
+    }
+  | null;
 
 export type Order = {
   id: string;
@@ -70,7 +72,12 @@ function safeParseOrders(raw: string | null): Order[] {
         const phone = typeof obj.phone === "string" ? obj.phone : "";
         const address = typeof obj.address === "string" ? obj.address : "";
         const city = typeof obj.city === "string" ? obj.city : "";
-        const paymentMethod = typeof obj.paymentMethod === "string" ? obj.paymentMethod : "SSLCommerz";
+
+        // ✅ supports both SSLCommerz label + COD
+        const paymentMethod =
+          typeof obj.paymentMethod === "string" && obj.paymentMethod.trim()
+            ? obj.paymentMethod
+            : "SSLCommerz (bKash / Card / Nagad)";
 
         const status = ((): OrderStatus => {
           const s = typeof obj.status === "string" ? obj.status : "PENDING";
@@ -114,8 +121,7 @@ function safeParseOrders(raw: string | null): Order[] {
         if (couponObj && typeof couponObj === "object") {
           const code = typeof couponObj.code === "string" ? couponObj.code : "";
           const type = couponObj.type === "PERCENT" ? "PERCENT" : null;
-          const value =
-            typeof couponObj.value === "number" ? couponObj.value : Number(couponObj.value);
+          const value = typeof couponObj.value === "number" ? couponObj.value : Number(couponObj.value);
           if (code && type && Number.isFinite(value)) {
             coupon = { code, type, value };
           }

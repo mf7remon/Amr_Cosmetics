@@ -212,9 +212,9 @@ export default function AccountOrdersPage() {
       <div className="w-full bg-black">
         <div className="max-w-4xl mx-auto px-6 py-12 text-white">
           <h1 className="text-3xl font-bold text-pink-500 mb-3">My Orders</h1>
-          <p className="text-gray-300">আপনি লগইন করেননি</p>
+          <p className="text-gray-300">you didn't login</p>
           <Link href="/login" className="inline-block mt-4 text-pink-400 hover:text-pink-300">
-            Login এ যান →
+            Go to Login →
           </Link>
         </div>
       </div>
@@ -233,9 +233,9 @@ export default function AccountOrdersPage() {
 
         {sorted.length === 0 ? (
           <div className="bg-zinc-900 border border-zinc-800 rounded p-6">
-            <p className="text-gray-300">আপনার কোনো অর্ডার এখনো নেই</p>
+            <p className="text-gray-300">There is order found</p>
             <Link href="/products" className="inline-block mt-4 text-pink-400 hover:text-pink-300">
-              Products দেখুন →
+              View Products →
             </Link>
           </div>
         ) : (
@@ -272,12 +272,12 @@ export default function AccountOrdersPage() {
 
                   <details className="mt-4">
                     <summary className="cursor-pointer text-sm text-gray-300 hover:text-white">
-                      Items দেখুন ({items.length})
+                      ViewItems ({items.length})
                     </summary>
 
                     <div className="mt-3 space-y-2">
                       {items.length === 0 ? (
-                        <p className="text-sm text-gray-400">Items data পাওয়া যায়নি</p>
+                        <p className="text-sm text-gray-400">Items data has not found</p>
                       ) : (
                         items.map((it, idx) => {
                           const name = it?.name || it?.title || "Item";
